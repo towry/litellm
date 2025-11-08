@@ -1,0 +1,139 @@
+name: Nix Build Release
+
+on:
+  push:
+    tags:
+      - "nix-build-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-minimal-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/nix-build-v}" >> $GITHUB_OUTPUT
+
+      - name: Create minimal distribution package
+        run: |
+          # Create distribution directory
+          mkdir -p dist-minimal
+          cd dist-minimal
+
+          # Copy essential files and directories for main package
+          cp -r ../litellm .
+          cp ../pyproject.toml .
+          cp ../README.md .
+          cp ../LICENSE .
+          cp ../requirements.txt .
+
+          # Copy data files required for runtime
+          cp ../model_prices_and_context_window.json .
+          cp ../provider_endpoints_support.json .
+          cp ../schema.prisma .
+
+          # Copy litellm-proxy-extras package
+          cp -r ../litellm-proxy-extras .
+
+          # Copy enterprise package (some builds reference it)
+          [ -d ../enterprise ] && cp -r ../enterprise . || true
+
+          # Copy litellm-js (optional runtime/js helpers)
+          [ -d ../litellm-js ] && cp -r ../litellm-js . || true
+
+          # Copy proxy server config if present
+          [ -f ../proxy_server_config.yaml ] && cp ../proxy_server_config.yaml . || true
+
+          # Copy setup files if they exist
+          [ -f ../setup.py ] && cp ../setup.py .
+          [ -f ../MANIFEST.in ] && cp ../MANIFEST.in .
+
+          # Remove unnecessary files to reduce size
+          find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find . -type f -name "*.pyc" -delete
+          find . -type f -name "*.pyo" -delete
+          find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+          find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+
+          # Remove test files to save space
+          rm -rf litellm-proxy-extras/tests 2>/dev/null || true
+
+          # Create tarball
+          cd ..
+          tar -czf litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz -C dist-minimal .
+
+      - name: Generate checksums
+        run: |
+          sha256sum litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz > litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz.sha256
+          md5sum litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz > litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz.md5
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          # LiteLLM Minimal Package for Nix Build
+
+          This is a minimal distribution package containing only the files needed to run LiteLLM.
+
+          ## Package Contents
+          - `litellm/` - Main source code
+          - `litellm-proxy-extras/` - Proxy extras package (DB schema & migrations)
+          - `model_prices_and_context_window.json` - Model pricing data
+          - `provider_endpoints_support.json` - Provider endpoint configurations
+          - `schema.prisma` - Database schema
+          - `pyproject.toml` - Project configuration
+          - `requirements.txt` - Dependencies
+          - `README.md` and `LICENSE`
+
+          ## Package Size
+          - `pyproject.toml` - Project configuration
+          - `requirements.txt` - Dependencies
+          - `README.md` and `LICENSE`
+
+          ## Installationpip (including proxy extras)
+          pip install -e ".[proxy]"
+
+          # Or install with uv
+          uv pip install -e ".[proxy]"
+          ```
+
+          ## For Nix Build
+          ```nix
+          # Use in your Nix expression
+          fetchurl {
+            url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz";
+            sha256 = "...";  # See .sha256 file
+          }
+          ```
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz
+            litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz.sha256
+            litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz.md5
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          name: "Nix Build Package v${{ steps.get_version.outputs.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: litellm-minimal-package
+          path: litellm-minimal-${{ steps.get_version.outputs.VERSION }}.tar.gz
+          retention-days: 30
