@@ -174,13 +174,13 @@ class LiteLLMAnthropicMessagesAdapter:
                             )
 
                             if openai_image_url:
-                                image_url_obj = ChatCompletionImageUrlObject(
-                                    url=openai_image_url
-                                )
-                                image_obj = ChatCompletionImageObject(
-                                    type="image_url", image_url=image_url_obj
-                                )
-                                new_user_content_list.append(image_obj)
+                                # Create plain dict objects instead of TypedDict to avoid serialization issues
+                                # This ensures compatibility with strict schema validation (e.g., GitHub Copilot)
+                                image_obj: ChatCompletionImageObject = {
+                                    "type": "image_url",
+                                    "image_url": {"url": openai_image_url},
+                                }
+                                new_user_content_list.append(image_obj)  # type: ignore
                         elif content.get("type") == "tool_result":
                             if "content" not in content:
                                 tool_result = ChatCompletionToolMessage(
