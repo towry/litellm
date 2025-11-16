@@ -379,6 +379,9 @@ from litellm.proxy.utils import (
     update_spend,
 )
 from litellm.proxy.vector_store_endpoints.endpoints import router as vector_store_router
+from litellm.proxy.vector_store_files_endpoints.endpoints import (
+    router as vector_store_files_router,
+)
 from litellm.proxy.vertex_ai_endpoints.langfuse_endpoints import (
     router as langfuse_router,
 )
@@ -1908,7 +1911,9 @@ class ProxyConfig:
                 raise Exception("Unable to load config from given source.")
         else:
             # default to file
+
             config = await self._get_config_from_file(config_file_path=config_file_path)
+
         ## UPDATE CONFIG WITH DB
         if prisma_client is not None and store_model_in_db is True:
             config = await self._update_config_from_db(
@@ -1924,6 +1929,7 @@ class ProxyConfig:
         config = self._check_for_os_environ_vars(config=config)
 
         self.update_config_state(config=config)
+
         return config
 
     def update_config_state(self, config: dict):
@@ -10084,6 +10090,7 @@ app.include_router(search_router)
 app.include_router(image_router)
 app.include_router(fine_tuning_router)
 app.include_router(vector_store_router)
+app.include_router(vector_store_files_router)
 app.include_router(credential_router)
 app.include_router(llm_passthrough_router)
 app.include_router(mcp_management_router)
