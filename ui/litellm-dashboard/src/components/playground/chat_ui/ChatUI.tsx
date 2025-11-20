@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ApiOutlined,
   ArrowUpOutlined,
@@ -12,41 +14,43 @@ import {
   PictureOutlined,
   RobotOutlined,
   SafetyOutlined,
+  SettingOutlined,
   SoundOutlined,
   TagsOutlined,
   ToolOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { Card, Text, TextInput, Title, Button as TremorButton } from "@tremor/react";
-import { Button, Input, Modal, Select, Spin, Tooltip, Typography, Upload } from "antd";
+import { Button, Input, Modal, Popover, Select, Spin, Tooltip, Typography, Upload } from "antd";
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { coy } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { v4 as uuidv4 } from "uuid";
-import GuardrailSelector from "../guardrails/GuardrailSelector";
-import NotificationsManager from "../molecules/notifications_manager";
-import TagSelector from "../tag_management/TagSelector";
-import VectorStoreSelector from "../vector_store_management/VectorStoreSelector";
+import { truncateString } from "../../../utils/textUtils";
+import GuardrailSelector from "../../guardrails/GuardrailSelector";
+import NotificationsManager from "../../molecules/notifications_manager";
+import TagSelector from "../../tag_management/TagSelector";
+import VectorStoreSelector from "../../vector_store_management/VectorStoreSelector";
+import AdditionalModelSettings from "./AdditionalModelSettings";
 import AudioRenderer from "./AudioRenderer";
 import { OPEN_AI_VOICE_SELECT_OPTIONS, OpenAIVoice } from "./chatConstants";
 import ChatImageRenderer from "./ChatImageRenderer";
 import ChatImageUpload from "./ChatImageUpload";
 import { createChatDisplayMessage, createChatMultimodalMessage } from "./ChatImageUtils";
-import { truncateString } from "../../utils/textUtils";
 import { generateCodeSnippet } from "./CodeSnippets";
 import EndpointSelector from "./EndpointSelector";
-import { makeAnthropicMessagesRequest } from "./llm_calls/anthropic_messages";
-import { makeOpenAIAudioSpeechRequest } from "./llm_calls/audio_speech";
-import { makeOpenAIAudioTranscriptionRequest } from "./llm_calls/audio_transcriptions";
-import { makeOpenAIChatCompletionRequest } from "./llm_calls/chat_completion";
-import { makeOpenAIEmbeddingsRequest } from "./llm_calls/embeddings_api";
-import type { MCPTool } from "./llm_calls/fetch_mcp_tools";
-import { fetchAvailableMCPTools } from "./llm_calls/fetch_mcp_tools";
-import { fetchAvailableModels, ModelGroup } from "./llm_calls/fetch_models";
-import { makeOpenAIImageEditsRequest } from "./llm_calls/image_edits";
-import { makeOpenAIImageGenerationRequest } from "./llm_calls/image_generation";
-import { makeOpenAIResponsesRequest } from "./llm_calls/responses_api";
+import { makeAnthropicMessagesRequest } from "../llm_calls/anthropic_messages";
+import { makeOpenAIAudioSpeechRequest } from "../llm_calls/audio_speech";
+import { makeOpenAIAudioTranscriptionRequest } from "../llm_calls/audio_transcriptions";
+import { makeOpenAIChatCompletionRequest } from "../llm_calls/chat_completion";
+import { makeOpenAIEmbeddingsRequest } from "../llm_calls/embeddings_api";
+import type { MCPTool } from "../llm_calls/fetch_mcp_tools";
+import { fetchAvailableMCPTools } from "../llm_calls/fetch_mcp_tools";
+import { fetchAvailableModels, ModelGroup } from "../llm_calls/fetch_models";
+import { makeOpenAIImageEditsRequest } from "../llm_calls/image_edits";
+import { makeOpenAIImageGenerationRequest } from "../llm_calls/image_generation";
+import { makeOpenAIResponsesRequest } from "../llm_calls/responses_api";
 import MCPEventsDisplay, { MCPEvent } from "./MCPEventsDisplay";
 import { EndpointType, getEndpointType } from "./mode_endpoint_mapping";
 import ReasoningContent from "./ReasoningContent";
@@ -184,6 +188,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [generatedCode, setGeneratedCode] = useState("");
   const [selectedSdk, setSelectedSdk] = useState<"openai" | "azure">("openai");
   const [mcpEvents, setMCPEvents] = useState<MCPEvent[]>([]);
+  const [temperature, setTemperature] = useState<number>(1.0);
+  const [maxTokens, setMaxTokens] = useState<number>(2048);
+  const [useAdvancedParams, setUseAdvancedParams] = useState<boolean>(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -456,6 +463,24 @@ const ChatUI: React.FC<ChatUIProps> = ({
         console.log("Updated message:", updatedMessage);
 
         return [...prevHistory.slice(0, prevHistory.length - 1), updatedMessage];
+      }
+
+      return prevHistory;
+    });
+  };
+
+  const updateTotalLatency = (totalLatency: number) => {
+    setChatHistory((prevHistory) => {
+      const lastMessage = prevHistory[prevHistory.length - 1];
+
+      if (lastMessage && lastMessage.role === "assistant") {
+        return [
+          ...prevHistory.slice(0, prevHistory.length - 1),
+          {
+            ...lastMessage,
+            totalLatency,
+          },
+        ];
       }
 
       return prevHistory;
@@ -762,9 +787,12 @@ const ChatUI: React.FC<ChatUIProps> = ({
             traceId,
             selectedVectorStores.length > 0 ? selectedVectorStores : undefined,
             selectedGuardrails.length > 0 ? selectedGuardrails : undefined,
-            selectedMCPTools, // Pass the selected tools array
-            updateChatImageUI, // Pass the image callback
-            updateSearchResults, // Pass the search results callback
+            selectedMCPTools,
+            updateChatImageUI,
+            updateSearchResults,
+            useAdvancedParams ? temperature : undefined,
+            useAdvancedParams ? maxTokens : undefined,
+            updateTotalLatency,
           );
         } else if (endpointType === EndpointType.IMAGE) {
           // For image generation
@@ -950,10 +978,23 @@ const ChatUI: React.FC<ChatUIProps> = ({
     setShowCustomModelInput(value === "custom");
   };
 
+  // Check if the selected model is a chat model
+  const isChatModel = () => {
+    if (!selectedModel || selectedModel === "custom") {
+      return false;
+    }
+    const model = modelInfo.find((m) => m.model_group === selectedModel);
+    if (!model) {
+      return false;
+    }
+    // Check if mode is explicitly "chat" or undefined (which defaults to chat per backend)
+    return !model.mode || model.mode === "chat";
+  };
+
   const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
   return (
-    <div className="w-full h-screen p-4 bg-white">
+    <div className="w-full p-4 pb-0 bg-white">
       <Card className="w-full rounded-xl shadow-md overflow-hidden">
         <div className="flex h-[80vh] w-full gap-4">
           {/* Left Sidebar with Controls */}
@@ -1037,8 +1078,44 @@ const ChatUI: React.FC<ChatUIProps> = ({
               </div>
 
               <div>
-                <Text className="font-medium block mb-2 text-gray-700 flex items-center">
-                  <RobotOutlined className="mr-2" /> Select Model
+                <Text className="font-medium block mb-2 text-gray-700 flex items-center justify-between">
+                  <span className="flex items-center">
+                    <RobotOutlined className="mr-2" /> Select Model
+                  </span>
+                  {isChatModel() ? (
+                    <Popover
+                      content={
+                        <AdditionalModelSettings
+                          temperature={temperature}
+                          maxTokens={maxTokens}
+                          useAdvancedParams={useAdvancedParams}
+                          onTemperatureChange={setTemperature}
+                          onMaxTokensChange={setMaxTokens}
+                          onUseAdvancedParamsChange={setUseAdvancedParams}
+                        />
+                      }
+                      title="Model Settings"
+                      trigger="click"
+                      placement="right"
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<SettingOutlined />}
+                        className="text-gray-500 hover:text-gray-700"
+                      />
+                    </Popover>
+                  ) : (
+                    <Tooltip title="Advanced parameters are only supported for chat models currently">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<SettingOutlined />}
+                        className="text-gray-300 cursor-not-allowed"
+                        disabled
+                      />
+                    </Tooltip>
+                  )}
                 </Text>
                 <Select
                   value={selectedModel}
@@ -1362,13 +1439,15 @@ const ChatUI: React.FC<ChatUIProps> = ({
                           </>
                         )}
 
-                        {message.role === "assistant" && (message.timeToFirstToken || message.usage) && (
-                          <ResponseMetrics
-                            timeToFirstToken={message.timeToFirstToken}
-                            usage={message.usage}
-                            toolName={message.toolName}
-                          />
-                        )}
+                        {message.role === "assistant" &&
+                          (message.timeToFirstToken || message.totalLatency || message.usage) && (
+                            <ResponseMetrics
+                              timeToFirstToken={message.timeToFirstToken}
+                              totalLatency={message.totalLatency}
+                              usage={message.usage}
+                              toolName={message.toolName}
+                            />
+                          )}
                       </div>
                     </div>
                   </div>

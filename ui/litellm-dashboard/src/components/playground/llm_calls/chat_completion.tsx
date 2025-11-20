@@ -1,7 +1,7 @@
 import openai from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { TokenUsage } from "../ResponseMetrics";
-import { VectorStoreSearchResponse } from "../types";
+import { TokenUsage } from "../chat_ui/ResponseMetrics";
+import { VectorStoreSearchResponse } from "../chat_ui/types";
 import { getProxyBaseUrl } from "@/components/networking";
 
 export async function makeOpenAIChatCompletionRequest(
@@ -20,6 +20,9 @@ export async function makeOpenAIChatCompletionRequest(
   selectedMCPTools?: string[],
   onImageGenerated?: (imageUrl: string, model?: string) => void,
   onSearchResults?: (searchResults: VectorStoreSearchResponse[]) => void,
+  temperature?: number,
+  max_tokens?: number,
+  onTotalLatency?: (latency: number) => void,
 ) {
   // base url should be the current base_url
   const isLocal = process.env.NODE_ENV === "development";
@@ -80,6 +83,8 @@ export async function makeOpenAIChatCompletionRequest(
         ...(vector_store_ids ? { vector_store_ids } : {}),
         ...(guardrails ? { guardrails } : {}),
         ...(tools ? { tools, tool_choice: "auto" } : {}),
+        ...(temperature !== undefined ? { temperature } : {}),
+        ...(max_tokens !== undefined ? { max_tokens } : {}),
       },
       { signal },
     );
@@ -150,8 +155,19 @@ export async function makeOpenAIChatCompletionRequest(
           usageData.reasoningTokens = chunkWithUsage.usage.completion_tokens_details.reasoning_tokens;
         }
 
+        // Extract cost from usage object if available
+        if (chunkWithUsage.usage.cost !== undefined && chunkWithUsage.usage.cost !== null) {
+          usageData.cost = parseFloat(chunkWithUsage.usage.cost);
+        }
+
         onUsageData(usageData);
       }
+    }
+
+    const endTime = Date.now();
+    const totalLatency = endTime - startTime;
+    if (onTotalLatency) {
+      onTotalLatency(totalLatency);
     }
   } catch (error) {
     if (signal?.aborted) {
