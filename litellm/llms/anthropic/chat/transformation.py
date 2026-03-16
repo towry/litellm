@@ -388,6 +388,24 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         returned_tool: Optional[AllAnthropicToolsValues] = None
         mcp_server: Optional[AnthropicMcpServerTool] = None
 
+        # Normalize Responses API tool format (top-level name/parameters/description)
+        # to Chat Completions format (nested under "function" key).
+        if (
+            tool.get("type") in ("function", "custom")
+            and "function" not in tool
+            and "name" in tool
+        ):
+            tool = dict(tool)  # avoid mutating caller's dict
+            tool["function"] = {
+                "name": tool.pop("name"),
+            }
+            if "parameters" in tool:
+                tool["function"]["parameters"] = tool.pop("parameters")
+            if "description" in tool:
+                tool["function"]["description"] = tool.pop("description")
+            if "strict" in tool:
+                tool["function"]["strict"] = tool.pop("strict")
+
         if tool["type"] == "function" or tool["type"] == "custom":
             _input_schema: dict = tool["function"].get(
                 "parameters",
