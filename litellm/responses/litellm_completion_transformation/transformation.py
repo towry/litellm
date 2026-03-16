@@ -375,6 +375,26 @@ class LiteLLMCompletionResponsesConfig:
         elif isinstance(input, list):
             existing_tool_call_ids: Set[str] = set()
             for _input in input:
+                # Skip empty assistant stubs that Responses API clients (e.g. Codex)
+                # insert between function_call and function_call_output. These create
+                # empty text blocks in the Anthropic payload and break tool_use/tool_result
+                # pairing for providers like Anthropic.
+                if (
+                    _input.get("role") == "assistant"
+                    and _input.get("type") == "message"
+                ):
+                    _content = _input.get("content")
+                    _is_empty = False
+                    if _content is None or _content == "":
+                        _is_empty = True
+                    elif isinstance(_content, list) and all(
+                        (isinstance(c, dict) and c.get("type") in ("output_text", "text") and not c.get("text"))
+                        for c in _content
+                    ):
+                        _is_empty = True
+                    if _is_empty:
+                        continue
+
                 chat_completion_messages = LiteLLMCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
                     input_item=_input
                 )
