@@ -1,6 +1,6 @@
+from litellm._uuid import uuid
 from typing import Any, Dict
 
-from litellm._uuid import uuid
 from litellm.llms.vertex_ai.common_utils import (
     _convert_vertex_datetime_to_openai_datetime,
 )
@@ -144,10 +144,9 @@ class VertexAIBatchTransformation:
 
         output_file_id: str = (
             response.get("outputInfo", OutputInfo()).get("gcsOutputDirectory", "")
+            + "/predictions.jsonl"
         )
-        if output_file_id:
-            output_file_id = output_file_id.rstrip("/") + "/predictions.jsonl"
-        if output_file_id and output_file_id != "/predictions.jsonl":
+        if output_file_id != "/predictions.jsonl":
             return output_file_id
 
         output_config = response.get("outputConfig")
@@ -159,9 +158,7 @@ class VertexAIBatchTransformation:
             return output_file_id
 
         output_uri_prefix = gcs_destination.get("outputUriPrefix", "")
-        if output_uri_prefix.endswith("/predictions.jsonl"):
-            return output_uri_prefix
-        return output_uri_prefix.rstrip("/") + "/predictions.jsonl"
+        return output_uri_prefix
 
     @classmethod
     def _get_batch_job_status_from_vertex_ai_batch_response(
