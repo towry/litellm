@@ -2,6 +2,11 @@ name: Check Patch Set
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'patches/series'
+      - 'patches/*.patch'
+      - 'patches/**/*.patch'
   schedule:
     - cron: '*/30 * * * *'
 
