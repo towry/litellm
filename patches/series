@@ -1,2 +1,4 @@
 0001-router-fallback-http-errors.patch
 0002-anthropic-normalize-responses-api-tool-shape.patch
+0003-responses-skip-empty-assistant-stubs.patch
+0004-responses-tool-result-raw-string.patch

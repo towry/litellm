@@ -26,18 +26,19 @@ index 47cdd8287e..adbb5f4d8b 100644
              _input_schema: dict = tool["function"].get(
                  "parameters",
 diff --git a/tests/test_litellm/llms/anthropic/chat/test_anthropic_chat_transformation.py b/tests/test_litellm/llms/anthropic/chat/test_anthropic_chat_transformation.py
-index a95b9413b9..bf00b4667f 100644
+index a95b9413b9..697b0a0fca 100644
 --- a/tests/test_litellm/llms/anthropic/chat/test_anthropic_chat_transformation.py
 +++ b/tests/test_litellm/llms/anthropic/chat/test_anthropic_chat_transformation.py
-@@ -3302,6 +3302,37 @@ def test_map_tool_helper_preserves_valid_object_schema():
+@@ -3302,6 +3302,38 @@ def test_map_tool_helper_preserves_valid_object_schema():
      assert result["input_schema"]["required"] == ["city"]
  
  
 +def test_map_tool_helper_normalizes_responses_api_tool_shape():
 +    """
-+    Responses API tools can arrive with top-level name/description/parameters
-+    instead of a nested function object. Anthropic mapping should normalize
-+    that shape instead of raising KeyError('function').
++    Responses API function tools can arrive with top-level
++    name/description/parameters instead of a nested function object.
++    Anthropic mapping should normalize that shape instead of raising
++    KeyError('function').
 +    """
 +    config = AnthropicConfig()
 +
