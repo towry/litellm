@@ -1,0 +1,76 @@
+name: Check Patch Set
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-patches
+  cancel-in-progress: true
+
+jobs:
+  check-patches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout patch branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch main
+        run: |
+          git fetch origin main
+
+      - name: Detect main changes since last patch commit
+        id: main_state
+        run: |
+          MAIN_SHA=$(git rev-parse origin/main)
+          echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "Checking patches against origin/main at $MAIN_SHA"
+
+      - name: Reset worktree to main
+        run: |
+          git checkout --detach origin/main
+
+      - name: Restore patch files from patch branch
+        run: |
+          git restore --source "$GITHUB_SHA" -- patches .github/workflows/check-patches.yml
+
+      - name: Apply patches in order
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r patch; do
+            [ -n "$patch" ] || continue
+            echo "Applying $patch"
+
+            if ! git apply --check "patches/$patch"; then
+              echo "Patch pre-check failed: $patch" >&2
+              exit 1
+            fi
+
+            if ! git apply --3way "patches/$patch"; then
+              echo "Patch apply failed: $patch" >&2
+              exit 1
+            fi
+          done < patches/series
+
+      - name: Show resulting diff
+        run: |
+          git status --short
+          git diff --stat
+
+      - name: Write summary
+        run: |
+          {
+            echo "## Patch Check Result"
+            echo
+            echo "- Patch branch SHA: \`$GITHUB_SHA\`"
+            echo "- Checked main SHA: \`${{ steps.main_state.outputs.main_sha }}\`"
+            echo "- Patch count: \`$(wc -l < patches/series | tr -d ' ')\`"
+            echo "- Result: success"
+          } >> "$GITHUB_STEP_SUMMARY"
