@@ -38,26 +38,13 @@ jobs:
 
       - name: Restore patch files from patch branch
         run: |
-          git restore --source "$GITHUB_SHA" -- patches .github/workflows/check-patches.yml
+          git restore --source "$GITHUB_SHA" -- patches scripts .github/workflows/check-patches.yml
 
       - name: Apply patches in order
         run: |
-          set -euo pipefail
-
-          while IFS= read -r patch; do
-            [ -n "$patch" ] || continue
-            echo "Applying $patch"
-
-            if ! git apply --check "patches/$patch"; then
-              echo "Patch pre-check failed: $patch" >&2
-              exit 1
-            fi
-
-            if ! git apply --3way "patches/$patch"; then
-              echo "Patch apply failed: $patch" >&2
-              exit 1
-            fi
-          done < patches/series
+          bash scripts/apply.sh \
+            --repo-root "$PWD" \
+            --patches-dir "$PWD/patches"
 
       - name: Show resulting diff
         run: |
