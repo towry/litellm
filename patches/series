@@ -2,3 +2,4 @@
 0002-anthropic-normalize-responses-api-tool-shape.patch
 0003-responses-skip-empty-assistant-stubs.patch
 0004-responses-tool-result-raw-string.patch
+0005-vertex-ai-raise-error-on-midstream-429.patch
