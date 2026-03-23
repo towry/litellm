@@ -2,24 +2,58 @@ diff --git a/litellm/completion_extras/litellm_responses_transformation/transfor
 index 53ffd3647b..9d74129a63 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -574,7 +574,27 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -63,6 +63,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+     def __init__(self):
+         pass
+ 
++    @staticmethod
++    def _get_provider_post_processor(
++        model: str, custom_llm_provider: Optional[str]
++    ) -> "litellm.OpenAIGPTConfig":
++        provider_post_processor = litellm.OpenAIGPTConfig()
++        if not isinstance(custom_llm_provider, str):
++            return provider_post_processor
++
++        try:
++            provider_enum = litellm.LlmProviders(custom_llm_provider)
++        except Exception:
++            provider_enum = None
++
++        try:
++            if provider_enum is not None:
++                provider_config = litellm.ProviderConfigManager.get_provider_chat_config(
++                    model=model,
++                    provider=provider_enum,
++                )
++                if provider_config is not None:
++                    return provider_config
++            else:
++                from litellm.llms.openai_like.dynamic_config import create_config_class
++                from litellm.llms.openai_like.json_loader import JSONProviderRegistry
++
++                if JSONProviderRegistry.exists(custom_llm_provider):
++                    provider_config = JSONProviderRegistry.get(custom_llm_provider)
++                    if provider_config is not None:
++                        return create_config_class(provider_config)()
++        except Exception:
++            pass
++
++        return provider_post_processor
++
+     def _handle_raw_dict_response_item(
+         self, item: Dict[str, Any], index: int
+     ) -> Tuple[Optional[Any], int]:
+@@ -574,7 +608,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value
  
 -        return model_response
 +        response_headers = cast(dict, raw_response_hidden_params).get("headers", {})
 +        custom_llm_provider = litellm_params.get("custom_llm_provider")
-+        provider_post_processor = litellm.OpenAIGPTConfig()
-+        if isinstance(custom_llm_provider, str):
-+            try:
-+                provider_config = litellm.ProviderConfigManager.get_provider_chat_config(
-+                    model=model,
-+                    provider=litellm.LlmProviders(custom_llm_provider),
-+                )
-+                if provider_config is not None:
-+                    provider_post_processor = provider_config
-+            except Exception:
-+                provider_post_processor = litellm.OpenAIGPTConfig()
++        provider_post_processor = self._get_provider_post_processor(
++            model=model,
++            custom_llm_provider=custom_llm_provider,
++        )
 +
 +        return provider_post_processor._apply_openai_like_behavior(
 +            model=model,
