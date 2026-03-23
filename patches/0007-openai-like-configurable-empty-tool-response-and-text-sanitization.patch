@@ -1,0 +1,475 @@
+diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
+index 53ffd3647b..9d74129a63 100644
+--- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
++++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
+@@ -574,7 +574,27 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+                 else:
+                     model_response._hidden_params[key] = value
+ 
+-        return model_response
++        response_headers = cast(dict, raw_response_hidden_params).get("headers", {})
++        custom_llm_provider = litellm_params.get("custom_llm_provider")
++        provider_post_processor = litellm.OpenAIGPTConfig()
++        if isinstance(custom_llm_provider, str):
++            try:
++                provider_config = litellm.ProviderConfigManager.get_provider_chat_config(
++                    model=model,
++                    provider=litellm.LlmProviders(custom_llm_provider),
++                )
++                if provider_config is not None:
++                    provider_post_processor = provider_config
++            except Exception:
++                provider_post_processor = litellm.OpenAIGPTConfig()
++
++        return provider_post_processor._apply_openai_like_behavior(
++            model=model,
++            model_response=model_response,
++            optional_params=optional_params,
++            litellm_params=litellm_params,
++            headers=response_headers,
++        )
+ 
+     def get_model_response_iterator(
+         self,
+diff --git a/litellm/litellm_core_utils/get_litellm_params.py b/litellm/litellm_core_utils/get_litellm_params.py
+index ad9538ac17..0f338e49e2 100644
+--- a/litellm/litellm_core_utils/get_litellm_params.py
++++ b/litellm/litellm_core_utils/get_litellm_params.py
+@@ -94,6 +94,7 @@ def get_litellm_params(
+     api_version: Optional[str] = None,
+     max_retries: Optional[int] = None,
+     litellm_request_debug: Optional[bool] = None,
++    openai_like_behavior: Optional[dict] = None,
+     **kwargs,
+ ) -> dict:
+     # Derive litellm_session_id / litellm_trace_id from metadata when not provided (call chaining)
+@@ -153,6 +154,7 @@ def get_litellm_params(
+         "max_retries": max_retries,
+         "use_litellm_proxy": use_litellm_proxy,
+         "litellm_request_debug": litellm_request_debug,
++        "openai_like_behavior": openai_like_behavior,
+     }
+ 
+     # Sparse extraction: only add kwargs keys that are actually present
+diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
+index 63beb82ded..f5eada85b7 100644
+--- a/litellm/llms/openai/chat/gpt_transformation.py
++++ b/litellm/llms/openai/chat/gpt_transformation.py
+@@ -2,6 +2,7 @@
+ Support for gpt model family
+ """
+ 
++import re
+ from typing import (
+     TYPE_CHECKING,
+     Any,
+@@ -107,6 +108,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+     temperature: Optional[int] = None
+     top_p: Optional[int] = None
+     response_format: Optional[dict] = None
++    _LEADING_CTRL_TOKEN_PATTERN = re.compile(r"^(?:<ctrl\d+>\s*)+")
++    _CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+ 
+     def __init__(
+         self,
+@@ -133,6 +136,183 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+     def get_config(cls):
+         return super().get_config()
+ 
++    @staticmethod
++    def _get_mapping_or_attr_value(obj: Any, key: str, default: Any = None) -> Any:
++        if obj is None:
++            return default
++        if isinstance(obj, dict):
++            return obj.get(key, default)
++        getter = getattr(obj, "get", None)
++        if callable(getter):
++            try:
++                return getter(key, default)
++            except (TypeError, AttributeError):
++                pass
++        return getattr(obj, key, default)
++
++    def get_openai_like_behavior_defaults(self) -> dict:
++        return {}
++
++    def _get_openai_like_behavior(self, litellm_params: Optional[dict]) -> dict:
++        behavior: dict = {}
++        defaults = self.get_openai_like_behavior_defaults()
++        if isinstance(defaults, dict):
++            behavior.update(defaults)
++        if isinstance(litellm_params, dict):
++            overrides = litellm_params.get("openai_like_behavior")
++            if isinstance(overrides, dict):
++                for key, value in overrides.items():
++                    if value is not None:
++                        behavior[key] = value
++        return behavior
++
++    @classmethod
++    def _sanitize_visible_text(cls, text: Optional[str]) -> Optional[str]:
++        if text is None:
++            return None
++        if not isinstance(text, str):
++            return text
++        sanitized = cls._LEADING_CTRL_TOKEN_PATTERN.sub("", text)
++        sanitized = cls._CONTROL_CHAR_PATTERN.sub("", sanitized)
++        return sanitized
++
++    @staticmethod
++    def _has_tool_calling_intent(optional_params: Optional[dict]) -> bool:
++        if not isinstance(optional_params, dict):
++            return False
++        if optional_params.get("tools"):
++            return True
++        if optional_params.get("functions"):
++            return True
++        return False
++
++    @classmethod
++    def _message_has_visible_output(cls, message: Any) -> bool:
++        if not message:
++            return False
++        content = cls._sanitize_visible_text(
++            cls._get_mapping_or_attr_value(message, "content")
++        )
++        if isinstance(content, str) and content.strip():
++            return True
++        reasoning_content = cls._sanitize_visible_text(
++            cls._get_mapping_or_attr_value(message, "reasoning_content")
++        )
++        if isinstance(reasoning_content, str) and reasoning_content.strip():
++            return True
++        if cls._get_mapping_or_attr_value(message, "tool_calls"):
++            return True
++        if cls._get_mapping_or_attr_value(message, "function_call"):
++            return True
++        if cls._get_mapping_or_attr_value(message, "audio"):
++            return True
++        if cls._get_mapping_or_attr_value(message, "images"):
++            return True
++        return False
++
++    @classmethod
++    def _sanitize_model_response_messages(cls, model_response: ModelResponse) -> None:
++        for choice in getattr(model_response, "choices", []) or []:
++            message = getattr(choice, "message", None)
++            if message is None:
++                continue
++            content = cls._sanitize_visible_text(
++                cls._get_mapping_or_attr_value(message, "content")
++            )
++            if hasattr(message, "content"):
++                message.content = content
++            elif isinstance(message, dict):
++                message["content"] = content
++            reasoning_content = cls._sanitize_visible_text(
++                cls._get_mapping_or_attr_value(message, "reasoning_content")
++            )
++            if hasattr(message, "reasoning_content"):
++                message.reasoning_content = reasoning_content
++            elif isinstance(message, dict):
++                message["reasoning_content"] = reasoning_content
++
++    def _raise_on_invalid_empty_tool_response(
++        self,
++        model: str,
++        model_response: ModelResponse,
++        optional_params: Optional[dict],
++        headers: httpx.Headers,
++        behavior: dict,
++    ) -> None:
++        if behavior.get("raise_on_empty_tool_response") is not True:
++            return
++        if not self._has_tool_calling_intent(optional_params):
++            return
++
++        choices = getattr(model_response, "choices", []) or []
++        if len(choices) == 0:
++            return
++
++        if any(
++            self._message_has_visible_output(getattr(choice, "message", None))
++            for choice in choices
++        ):
++            return
++
++        configured_finish_reasons = behavior.get("empty_tool_response_finish_reasons")
++        if isinstance(configured_finish_reasons, list) and len(configured_finish_reasons) > 0:
++            allowed_finish_reasons = {
++                str(reason).strip().upper()
++                for reason in configured_finish_reasons
++                if reason is not None and str(reason).strip()
++            }
++        else:
++            allowed_finish_reasons = {"STOP"}
++
++        finish_reasons = [
++            str(getattr(choice, "finish_reason", "") or "").strip().upper()
++            for choice in choices
++            if getattr(choice, "finish_reason", None) is not None
++        ]
++        if len(finish_reasons) == 0:
++            return
++        if not all(reason in allowed_finish_reasons for reason in finish_reasons):
++            return
++
++        response_id = getattr(model_response, "id", None)
++        status_code = behavior.get("empty_tool_response_status_code", 503)
++        if not isinstance(status_code, int):
++            status_code = 503
++        error_token = (
++            behavior.get("empty_tool_response_error_token")
++            or "LITELLM_OPENAI_LIKE_EMPTY_TOOL_RESPONSE_RETRYABLE"
++        )
++        finish_reason_summary = ",".join(finish_reasons)
++        raise self.get_error_class(
++            error_message=(
++                f"{error_token}: provider returned an empty tool-calling response "
++                f"with no content and no tool calls. Treating this as retryable output. "
++                f"model={model}, response_id={response_id}, finish_reason={finish_reason_summary}"
++            ),
++            status_code=status_code,
++            headers=headers,
++        )
++
++    def _apply_openai_like_behavior(
++        self,
++        model: str,
++        model_response: ModelResponse,
++        optional_params: Optional[dict],
++        litellm_params: Optional[dict],
++        headers: httpx.Headers,
++    ) -> ModelResponse:
++        behavior = self._get_openai_like_behavior(litellm_params)
++        if behavior.get("sanitize_visible_text") is True:
++            self._sanitize_model_response_messages(model_response)
++        self._raise_on_invalid_empty_tool_response(
++            model=model,
++            model_response=model_response,
++            optional_params=optional_params,
++            headers=headers,
++            behavior=behavior,
++        )
++        return model_response
++
+     def get_supported_openai_params(self, model: str) -> list:
+         base_params = [
+             "frequency_penalty",
+@@ -650,7 +830,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+             _response_headers=raw_response_headers,
+         )
+ 
+-        return cast(ModelResponse, final_response_obj)
++        return self._apply_openai_like_behavior(
++            model=model,
++            model_response=cast(ModelResponse, final_response_obj),
++            optional_params=optional_params,
++            litellm_params=litellm_params,
++            headers=raw_response.headers,
++        )
+ 
+     def get_error_class(
+         self, error_message: str, status_code: int, headers: Union[dict, httpx.Headers]
+diff --git a/litellm/llms/openai_like/README.md b/litellm/llms/openai_like/README.md
+index e9aaafe48a..9ad9006e3b 100644
+--- a/litellm/llms/openai_like/README.md
++++ b/litellm/llms/openai_like/README.md
+@@ -59,7 +59,13 @@ That's it! The provider will be automatically loaded and available.
+     
+     // Optional: Special handling flags
+     "special_handling": {
+-      "convert_content_list_to_string": true
++      "convert_content_list_to_string": true,
++      "openai_like_behavior": {
++        "sanitize_visible_text": true,
++        "raise_on_empty_tool_response": true,
++        "empty_tool_response_finish_reasons": ["STOP"],
++        "empty_tool_response_status_code": 503
++      }
+     }
+   }
+ }
+@@ -116,6 +122,26 @@ The provider inherits all request/response handling from OpenAI's Responses API
+ 
+ If `supported_endpoints` is omitted, it defaults to `[]` (only chat completions, which is always enabled for JSON providers).
+ 
++## Deployment-Level Overrides
++
++You can override OpenAI-like response handling per deployment via `litellm_params.openai_like_behavior`:
++
++```yaml
++model_list:
++  - model_name: opensdk/gemini-3-pro
++    litellm_params:
++      model: kilo/google/gemini-3.1-pro-preview-customtools
++      api_base: os.environ/KILO_API_BASE
++      api_key: os.environ/KILO_API_KEY
++      openai_like_behavior:
++        sanitize_visible_text: true
++        raise_on_empty_tool_response: true
++        empty_tool_response_finish_reasons: ["STOP"]
++        empty_tool_response_status_code: 503
++```
++
++Deployment-level settings override any JSON `special_handling.openai_like_behavior` defaults for that provider.
++
+ ### How It Works
+ 
+ 1. `json_loader.py` checks `supported_endpoints` for `/v1/responses`
+diff --git a/litellm/llms/openai_like/chat/transformation.py b/litellm/llms/openai_like/chat/transformation.py
+index 1c8cd574c0..5c1b8e0534 100644
+--- a/litellm/llms/openai_like/chat/transformation.py
++++ b/litellm/llms/openai_like/chat/transformation.py
+@@ -77,8 +77,8 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+                     usage[key] = 0
+         return response_json
+ 
+-    @staticmethod
+     def _transform_response(
++        self,
+         model: str,
+         response: httpx.Response,
+         model_response: ModelResponse,
+@@ -93,6 +93,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+         json_mode: Optional[bool],
+         custom_llm_provider: Optional[str],
+         base_model: Optional[str],
++        litellm_params: Optional[dict],
+     ) -> ModelResponse:
+         response_json = response.json()
+         logging_obj.post_call(
+@@ -103,14 +104,12 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+         )
+ 
+         # Sanitize the usage object at the source
+-        response_json = OpenAILikeChatConfig._sanitize_usage_obj(response_json)
++        response_json = self._sanitize_usage_obj(response_json)
+ 
+         if json_mode:
+             for choice in response_json["choices"]:
+-                message = (
+-                    OpenAILikeChatConfig._json_mode_convert_tool_response_to_message(
+-                        choice.get("message"), json_mode
+-                    )
++                message = self._json_mode_convert_tool_response_to_message(
++                    choice.get("message"), json_mode
+                 )
+                 choice["message"] = message
+ 
+@@ -123,7 +122,13 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+ 
+         if base_model is not None:
+             returned_response._hidden_params["model"] = base_model
+-        return returned_response
++        return self._apply_openai_like_behavior(
++            model=model,
++            model_response=returned_response,
++            optional_params=optional_params,
++            litellm_params=litellm_params,
++            headers=response.headers,
++        )
+ 
+     def transform_response(
+         self,
+@@ -139,7 +144,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+         api_key: Optional[str] = None,
+         json_mode: Optional[bool] = None,
+     ) -> ModelResponse:
+-        return OpenAILikeChatConfig._transform_response(
++        return self._transform_response(
+             model=model,
+             response=raw_response,
+             model_response=model_response,
+@@ -154,6 +159,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+             json_mode=json_mode,
+             custom_llm_provider=None,
+             base_model=None,
++            litellm_params=litellm_params,
+         )
+ 
+     def map_openai_params(
+diff --git a/litellm/llms/openai_like/dynamic_config.py b/litellm/llms/openai_like/dynamic_config.py
+index 3d66556e52..81692e2c9c 100644
+--- a/litellm/llms/openai_like/dynamic_config.py
++++ b/litellm/llms/openai_like/dynamic_config.py
+@@ -75,6 +75,12 @@ def create_config_class(provider: SimpleProviderConfig):
+ 
+             return resolved_base, resolved_key
+ 
++        def get_openai_like_behavior_defaults(self) -> dict:
++            behavior = provider.special_handling.get("openai_like_behavior", {})
++            if isinstance(behavior, dict):
++                return dict(behavior)
++            return {}
++
+         def get_complete_url(
+             self,
+             api_base: Optional[str],
+@@ -196,6 +202,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
+         def custom_llm_provider(self):  # type: ignore[override]
+             return provider.slug
+ 
++        def get_openai_like_behavior_defaults(self) -> dict:
++            behavior = provider.special_handling.get("openai_like_behavior", {})
++            if isinstance(behavior, dict):
++                return dict(behavior)
++            return {}
++
+         def validate_environment(
+             self,
+             headers: dict,
+diff --git a/litellm/main.py b/litellm/main.py
+index 112fef44e5..b1ef558472 100644
+--- a/litellm/main.py
++++ b/litellm/main.py
+@@ -1585,6 +1585,7 @@ def completion(  # type: ignore # noqa: PLR0915
+             max_retries=max_retries,
+             timeout=timeout,
+             litellm_request_debug=kwargs.get("litellm_request_debug", False),
++            openai_like_behavior=kwargs.get("openai_like_behavior"),
+             tpm=kwargs.get("tpm"),
+             rpm=kwargs.get("rpm"),
+         )
+diff --git a/litellm/types/router.py b/litellm/types/router.py
+index e8ff2115ff..c24b174deb 100644
+--- a/litellm/types/router.py
++++ b/litellm/types/router.py
+@@ -195,6 +195,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
+     use_litellm_proxy: Optional[bool] = False
+     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+     merge_reasoning_content_in_choices: Optional[bool] = False
++    openai_like_behavior: Optional[Dict[str, Any]] = None
+     model_info: Optional[Dict] = None
+     mock_response: Optional[Union[str, ModelResponse, Exception, Any]] = None
+ 
+diff --git a/litellm/utils.py b/litellm/utils.py
+index c8272586da..f107582bab 100644
+--- a/litellm/utils.py
++++ b/litellm/utils.py
+@@ -3637,6 +3637,7 @@ class PreProcessNonDefaultParams:
+                 and k != "drop_params"
+                 and k != "allowed_openai_params"
+                 and k != "additional_drop_params"
++                and k != "openai_like_behavior"
+                 and k not in additional_endpoint_specific_params
+                 and k in default_param_values
+                 and v != default_param_values[k]
+@@ -4694,6 +4695,8 @@ def add_provider_specific_params_to_optional_params(
+         ):
+             extra_body = passed_params.pop("extra_body", None) or {}
+             for k in passed_params.keys():
++                if k == "openai_like_behavior":
++                    continue
+                 if k not in openai_params and passed_params[k] is not None:
+                     extra_body[k] = passed_params[k]
+             if not isinstance(optional_params.get("extra_body"), dict):
+@@ -4720,6 +4723,8 @@ def add_provider_specific_params_to_optional_params(
+             )
+     else:
+         for k in passed_params.keys():
++            if k == "openai_like_behavior":
++                continue
+             if k not in openai_params and passed_params[k] is not None:
+                 if _should_drop_param(
+                     k=k, additional_drop_params=additional_drop_params
