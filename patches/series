@@ -5,3 +5,4 @@
 0005-vertex-ai-raise-error-on-midstream-429.patch
 0006-gemini-empty-tool-response-invalid-and-sanitize-visible-text.patch
 0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
+0008-fix-server-tool-use-dict-web-search-requests.patch

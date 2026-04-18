@@ -1,0 +1,69 @@
+diff --git a/litellm/litellm_core_utils/llm_cost_calc/tool_call_cost_tracking.py b/litellm/litellm_core_utils/llm_cost_calc/tool_call_cost_tracking.py
+index 8da66d4600..db4cdc3144 100644
+--- a/litellm/litellm_core_utils/llm_cost_calc/tool_call_cost_tracking.py
++++ b/litellm/litellm_core_utils/llm_cost_calc/tool_call_cost_tracking.py
+@@ -21,6 +21,13 @@ from litellm.types.utils import (
+ )
+ 
+ 
++def _get_web_search_requests(server_tool_use) -> Optional[int]:
++    """Safely get web_search_requests from server_tool_use which may be a dict or an object."""
++    if isinstance(server_tool_use, dict):
++        return server_tool_use.get("web_search_requests")
++    return getattr(server_tool_use, "web_search_requests", None)
++
++
+ class StandardBuiltInToolCostTracking:
+     """
+     Helper class for tracking the cost of built-in tools
+@@ -340,7 +347,7 @@ class StandardBuiltInToolCostTracking:
+                 if (
+                     hasattr(usage, "server_tool_use")
+                     and usage.server_tool_use is not None
+-                    and usage.server_tool_use.web_search_requests is not None
++                    and _get_web_search_requests(usage.server_tool_use) is not None
+                 ):
+                     return True
+             return False
+@@ -353,7 +360,7 @@ class StandardBuiltInToolCostTracking:
+             if (
+                 hasattr(usage, "server_tool_use")
+                 and usage.server_tool_use is not None
+-                and usage.server_tool_use.web_search_requests is not None
++                and _get_web_search_requests(usage.server_tool_use) is not None
+             ):
+                 return True
+             elif (
+diff --git a/litellm/llms/anthropic/cost_calculation.py b/litellm/llms/anthropic/cost_calculation.py
+index 3882d8f978..dc0496a1ce 100644
+--- a/litellm/llms/anthropic/cost_calculation.py
++++ b/litellm/llms/anthropic/cost_calculation.py
+@@ -110,11 +110,16 @@ def get_cost_for_anthropic_web_search(
+     if model_info is None:
+         return 0.0
+ 
+-    if (
+-        usage is None
+-        or usage.server_tool_use is None
+-        or usage.server_tool_use.web_search_requests is None
+-    ):
++    server_tool_use = getattr(usage, "server_tool_use", None) if usage is not None else None
++    if server_tool_use is None:
++        return 0.0
++
++    if isinstance(server_tool_use, dict):
++        web_search_requests = server_tool_use.get("web_search_requests")
++    else:
++        web_search_requests = getattr(server_tool_use, "web_search_requests", None)
++
++    if web_search_requests is None:
+         return 0.0
+ 
+     ## Get the cost per web search request
+@@ -128,5 +133,5 @@ def get_cost_for_anthropic_web_search(
+         return 0.0
+ 
+     ## Calculate the total cost
+-    total_cost = cost_per_web_search_request * usage.server_tool_use.web_search_requests
++    total_cost = cost_per_web_search_request * web_search_requests
+     return total_cost
