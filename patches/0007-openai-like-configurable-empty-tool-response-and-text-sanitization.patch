@@ -1,8 +1,8 @@
 diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-index 53ffd3647b..9d74129a63 100644
+index 369c1c9e9d..224eaa87db 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -63,6 +63,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -119,6 +119,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
      def __init__(self):
          pass
  
@@ -43,7 +43,7 @@ index 53ffd3647b..9d74129a63 100644
      def _handle_raw_dict_response_item(
          self, item: Dict[str, Any], index: int
      ) -> Tuple[Optional[Any], int]:
-@@ -574,7 +608,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -670,7 +704,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value
  
@@ -86,7 +86,7 @@ index ad9538ac17..0f338e49e2 100644
  
      # Sparse extraction: only add kwargs keys that are actually present
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 63beb82ded..f5eada85b7 100644
+index 6b7ec4dfb1..9f46122ad9 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
 @@ -2,6 +2,7 @@
@@ -97,7 +97,7 @@ index 63beb82ded..f5eada85b7 100644
  from typing import (
      TYPE_CHECKING,
      Any,
-@@ -107,6 +108,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -108,6 +109,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      temperature: Optional[int] = None
      top_p: Optional[int] = None
      response_format: Optional[dict] = None
@@ -106,7 +106,7 @@ index 63beb82ded..f5eada85b7 100644
  
      def __init__(
          self,
-@@ -133,6 +136,183 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -134,6 +137,183 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      def get_config(cls):
          return super().get_config()
  
@@ -290,7 +290,7 @@ index 63beb82ded..f5eada85b7 100644
      def get_supported_openai_params(self, model: str) -> list:
          base_params = [
              "frequency_penalty",
-@@ -650,7 +830,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -651,7 +831,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              _response_headers=raw_response_headers,
          )
  
@@ -424,10 +424,10 @@ index 1c8cd574c0..5c1b8e0534 100644
  
      def map_openai_params(
 diff --git a/litellm/llms/openai_like/dynamic_config.py b/litellm/llms/openai_like/dynamic_config.py
-index 3d66556e52..81692e2c9c 100644
+index fac453447f..66dfae6ba6 100644
 --- a/litellm/llms/openai_like/dynamic_config.py
 +++ b/litellm/llms/openai_like/dynamic_config.py
-@@ -75,6 +75,12 @@ def create_config_class(provider: SimpleProviderConfig):
+@@ -73,6 +73,12 @@ def create_config_class(provider: SimpleProviderConfig):
  
              return resolved_base, resolved_key
  
@@ -440,7 +440,7 @@ index 3d66556e52..81692e2c9c 100644
          def get_complete_url(
              self,
              api_base: Optional[str],
-@@ -196,6 +202,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
+@@ -194,6 +200,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
          def custom_llm_provider(self):  # type: ignore[override]
              return provider.slug
  
@@ -454,10 +454,10 @@ index 3d66556e52..81692e2c9c 100644
              self,
              headers: dict,
 diff --git a/litellm/main.py b/litellm/main.py
-index 112fef44e5..b1ef558472 100644
+index daa0fb063a..f636af404f 100644
 --- a/litellm/main.py
 +++ b/litellm/main.py
-@@ -1585,6 +1585,7 @@ def completion(  # type: ignore # noqa: PLR0915
+@@ -1597,6 +1597,7 @@ def completion(  # type: ignore # noqa: PLR0915
              max_retries=max_retries,
              timeout=timeout,
              litellm_request_debug=kwargs.get("litellm_request_debug", False),
@@ -466,11 +466,11 @@ index 112fef44e5..b1ef558472 100644
              rpm=kwargs.get("rpm"),
          )
 diff --git a/litellm/types/router.py b/litellm/types/router.py
-index e8ff2115ff..c24b174deb 100644
+index 33102f9ec4..da5934154c 100644
 --- a/litellm/types/router.py
 +++ b/litellm/types/router.py
-@@ -195,6 +195,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
-     use_litellm_proxy: Optional[bool] = False
+@@ -204,6 +204,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
+     use_chat_completions_api: Optional[bool] = None
      model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
      merge_reasoning_content_in_choices: Optional[bool] = False
 +    openai_like_behavior: Optional[Dict[str, Any]] = None
@@ -478,10 +478,10 @@ index e8ff2115ff..c24b174deb 100644
      mock_response: Optional[Union[str, ModelResponse, Exception, Any]] = None
  
 diff --git a/litellm/utils.py b/litellm/utils.py
-index c8272586da..f107582bab 100644
+index e1ad1db63e..e25a791a05 100644
 --- a/litellm/utils.py
 +++ b/litellm/utils.py
-@@ -3637,6 +3637,7 @@ class PreProcessNonDefaultParams:
+@@ -3716,6 +3716,7 @@ class PreProcessNonDefaultParams:
                  and k != "drop_params"
                  and k != "allowed_openai_params"
                  and k != "additional_drop_params"
@@ -489,7 +489,7 @@ index c8272586da..f107582bab 100644
                  and k not in additional_endpoint_specific_params
                  and k in default_param_values
                  and v != default_param_values[k]
-@@ -4694,6 +4695,8 @@ def add_provider_specific_params_to_optional_params(
+@@ -4773,6 +4774,8 @@ def add_provider_specific_params_to_optional_params(
          ):
              extra_body = passed_params.pop("extra_body", None) or {}
              for k in passed_params.keys():
@@ -498,7 +498,7 @@ index c8272586da..f107582bab 100644
                  if k not in openai_params and passed_params[k] is not None:
                      extra_body[k] = passed_params[k]
              if not isinstance(optional_params.get("extra_body"), dict):
-@@ -4720,6 +4723,8 @@ def add_provider_specific_params_to_optional_params(
+@@ -4799,6 +4802,8 @@ def add_provider_specific_params_to_optional_params(
              )
      else:
          for k in passed_params.keys():
