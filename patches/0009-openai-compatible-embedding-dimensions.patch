@@ -1,0 +1,52 @@
+diff --git a/litellm/main.py b/litellm/main.py
+index daa0fb063a..2c53a656d2 100644
+--- a/litellm/main.py
++++ b/litellm/main.py
+@@ -4787,6 +4787,7 @@ def embedding(  # noqa: PLR0915
+         user=user,
+         dimensions=dimensions,
+         encoding_format=encoding_format,
++        api_base=api_base,
+         custom_llm_provider=custom_llm_provider,
+         allowed_openai_params=allowed_openai_params,
+         **non_default_params,
+diff --git a/litellm/utils.py b/litellm/utils.py
+index e1ad1db63e..34d4a88364 100644
+--- a/litellm/utils.py
++++ b/litellm/utils.py
+@@ -33,6 +33,7 @@ from importlib import resources
+ from inspect import iscoroutine
+ from io import StringIO
+ from os.path import abspath, dirname, join
++from urllib.parse import urlparse
+ 
+ import dotenv
+ import httpx
+@@ -3227,6 +3228,7 @@ def get_optional_params_embeddings(  # noqa: PLR0915
+     user: Optional[str] = None,
+     encoding_format: Optional[str] = None,
+     dimensions: Optional[int] = None,
++    api_base: Optional[str] = None,
+     custom_llm_provider="",
+     drop_params: Optional[bool] = None,
+     additional_drop_params: Optional[List[str]] = None,
+@@ -3302,12 +3304,19 @@ def get_optional_params_embeddings(  # noqa: PLR0915
+         )
+     ## raise exception if non-default value passed for non-openai/azure embedding calls
+     elif custom_llm_provider == "openai":
++        is_official_openai_api_base = True
++        if api_base is not None:
++            is_official_openai_api_base = (
++                urlparse(str(api_base)).hostname == "api.openai.com"
++            )
++
+         # 'dimensions` is only supported in `text-embedding-3` and later models
+         if (
+             model is not None
+             and "text-embedding-3" not in model
+             and "dimensions" in non_default_params.keys()
+             and "dimensions" not in (allowed_openai_params or [])
++            and is_official_openai_api_base
+         ):
+             raise UnsupportedParamsError(
+                 status_code=500,
