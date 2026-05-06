@@ -8,7 +8,7 @@ on:
       - 'patches/*.patch'
       - 'patches/**/*.patch'
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 0 * * 1'
 
 permissions:
   contents: read
