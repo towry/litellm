@@ -40,9 +40,9 @@ index 369c1c9e9d..224eaa87db 100644
 +
 +        return provider_post_processor
 +
-     def _handle_raw_dict_response_item(
-         self, item: Dict[str, Any], index: int
-     ) -> Tuple[Optional[Any], int]:
+     def _normalize_tool_choice_for_responses_api(self, tool_choice: Any) -> Any:
+         """Chat tool_choice uses function.name; Responses API expects top-level name."""
+         if not isinstance(tool_choice, dict) or tool_choice.get("type") != "function":
 @@ -670,7 +704,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value

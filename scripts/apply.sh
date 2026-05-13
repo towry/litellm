@@ -44,7 +44,7 @@ if [[ -z "$repo_root" || -z "$patches_dir" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$repo_root/.git" ]]; then
+if ! git -C "$repo_root" rev-parse --show-toplevel >/dev/null 2>&1; then
   echo "Repository root is not a git repository: $repo_root" >&2
   exit 1
 fi
