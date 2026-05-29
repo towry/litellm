@@ -6,3 +6,4 @@
 0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
 0008-fix-server-tool-use-dict-web-search-requests.patch
 0009-openai-compatible-embedding-dimensions.patch
+0010-anthropic-passthrough-hoist-system-messages.patch
