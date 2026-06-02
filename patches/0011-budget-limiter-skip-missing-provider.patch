@@ -1,0 +1,31 @@
+diff --git a/litellm/router_strategy/budget_limiter.py b/litellm/router_strategy/budget_limiter.py
+index f677e40b93..5727d02d0a 100644
+--- a/litellm/router_strategy/budget_limiter.py
++++ b/litellm/router_strategy/budget_limiter.py
+@@ -438,13 +438,22 @@ class RouterBudgetLimiting(CustomLogger):
+ 
+         response_cost: float = standard_logging_payload.get("response_cost", 0)
+         model_id: str = str(standard_logging_payload.get("model_id", ""))
+-        custom_llm_provider: str = kwargs.get("litellm_params", {}).get(
++        custom_llm_provider: Optional[str] = kwargs.get("litellm_params", {}).get(
+             "custom_llm_provider", None
+         )
+-        if custom_llm_provider is None:
+-            raise ValueError("custom_llm_provider is required")
+ 
+-        budget_config = self._get_budget_config_for_provider(custom_llm_provider)
++        # NOTE: ``custom_llm_provider`` is absent on some request paths (e.g. the
++        # anthropic ``/v1/messages`` passthrough routed via
++        # ``ageneric_api_call_with_fallbacks``). Provider-level budget accounting
++        # simply cannot apply there, so skip only that block instead of raising —
++        # raising aborts the whole callback and silently drops deployment- and
++        # tag-level budget accounting (which do not need a provider) for every
++        # such request.
++        budget_config = (
++            self._get_budget_config_for_provider(custom_llm_provider)
++            if custom_llm_provider is not None
++            else None
++        )
+         if budget_config:
+             # increment spend for provider
+             spend_key = (
