@@ -489,16 +489,16 @@ index e1ad1db63e..e25a791a05 100644
                  and k not in additional_endpoint_specific_params
                  and k in default_param_values
                  and v != default_param_values[k]
-@@ -4773,6 +4774,8 @@ def add_provider_specific_params_to_optional_params(
+@@ -4873,6 +4874,8 @@ def add_provider_specific_params_to_optional_params(
          ):
-             extra_body = passed_params.pop("extra_body", None) or {}
+             extra_body = dict(passed_params.pop("extra_body", None) or {})
              for k in passed_params.keys():
 +                if k == "openai_like_behavior":
 +                    continue
                  if k not in openai_params and passed_params[k] is not None:
                      extra_body[k] = passed_params[k]
              if not isinstance(optional_params.get("extra_body"), dict):
-@@ -4799,6 +4802,8 @@ def add_provider_specific_params_to_optional_params(
+@@ -4899,6 +4902,8 @@ def add_provider_specific_params_to_optional_params(
              )
      else:
          for k in passed_params.keys():

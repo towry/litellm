@@ -30,7 +30,7 @@ index 5a9dccc089..7de756431c 100644
      custom_llm_provider="",
      drop_params: Optional[bool] = None,
      additional_drop_params: Optional[List[str]] = None,
-@@ -3367,12 +3369,19 @@ def get_optional_params_embeddings(  # noqa: PLR0915
+@@ -3367,20 +3369,27 @@ def get_optional_params_embeddings(  # noqa: PLR0915
                      optional_params[param] = passed_params[param]
      ## raise exception if non-default value passed for non-openai/azure embedding calls
      elif custom_llm_provider == "openai":
@@ -48,5 +48,15 @@ index 5a9dccc089..7de756431c 100644
              and "dimensions" not in (allowed_openai_params or [])
 +            and is_official_openai_api_base
          ):
-             raise UnsupportedParamsError(
-                 status_code=500,
+             # Honor drop_params (per-call) and litellm.drop_params (global) the same
+             # way `_check_valid_arg` does above. The raised error message itself
+             # tells users to set `drop_params=True`, so respect it here.
+             if litellm.drop_params is True or drop_params is True:
+                 non_default_params.pop("dimensions", None)
+             else:
+                 raise UnsupportedParamsError(
+                     status_code=500,
+                     message="Setting dimensions is not supported for OpenAI `text-embedding-3` and later models. To drop it from the call, set `litellm.drop_params = True`.",
+                 )
+         optional_params = non_default_params
+     elif custom_llm_provider == "triton":
