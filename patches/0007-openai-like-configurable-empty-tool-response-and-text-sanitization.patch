@@ -1,8 +1,8 @@
 diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-index 369c1c9e9d..224eaa87db 100644
+index 9cb6929..34a8157 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -119,6 +119,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -122,6 +122,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
      def __init__(self):
          pass
  
@@ -43,7 +43,7 @@ index 369c1c9e9d..224eaa87db 100644
      def _normalize_tool_choice_for_responses_api(self, tool_choice: Any) -> Any:
          """Chat tool_choice uses function.name; Responses API expects top-level name."""
          if not isinstance(tool_choice, dict) or tool_choice.get("type") != "function":
-@@ -670,7 +704,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -733,7 +767,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value
  
@@ -66,10 +66,10 @@ index 369c1c9e9d..224eaa87db 100644
      def get_model_response_iterator(
          self,
 diff --git a/litellm/litellm_core_utils/get_litellm_params.py b/litellm/litellm_core_utils/get_litellm_params.py
-index ad9538ac17..0f338e49e2 100644
+index fbed959..4fa3805 100644
 --- a/litellm/litellm_core_utils/get_litellm_params.py
 +++ b/litellm/litellm_core_utils/get_litellm_params.py
-@@ -94,6 +94,7 @@ def get_litellm_params(
+@@ -102,6 +102,7 @@ def get_litellm_params(
      api_version: Optional[str] = None,
      max_retries: Optional[int] = None,
      litellm_request_debug: Optional[bool] = None,
@@ -77,7 +77,7 @@ index ad9538ac17..0f338e49e2 100644
      **kwargs,
  ) -> dict:
      # Derive litellm_session_id / litellm_trace_id from metadata when not provided (call chaining)
-@@ -153,6 +154,7 @@ def get_litellm_params(
+@@ -160,6 +161,7 @@ def get_litellm_params(
          "max_retries": max_retries,
          "use_litellm_proxy": use_litellm_proxy,
          "litellm_request_debug": litellm_request_debug,
@@ -86,7 +86,7 @@ index ad9538ac17..0f338e49e2 100644
  
      # Sparse extraction: only add kwargs keys that are actually present
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 6b7ec4dfb1..9f46122ad9 100644
+index 4d3c3ad..b329043 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
 @@ -2,6 +2,7 @@
@@ -97,7 +97,7 @@ index 6b7ec4dfb1..9f46122ad9 100644
  from typing import (
      TYPE_CHECKING,
      Any,
-@@ -108,6 +109,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -111,6 +112,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      temperature: Optional[int] = None
      top_p: Optional[int] = None
      response_format: Optional[dict] = None
@@ -106,7 +106,7 @@ index 6b7ec4dfb1..9f46122ad9 100644
  
      def __init__(
          self,
-@@ -134,6 +137,183 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -137,6 +140,186 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      def get_config(cls):
          return super().get_config()
  
@@ -229,7 +229,10 @@ index 6b7ec4dfb1..9f46122ad9 100644
 +            return
 +
 +        configured_finish_reasons = behavior.get("empty_tool_response_finish_reasons")
-+        if isinstance(configured_finish_reasons, list) and len(configured_finish_reasons) > 0:
++        if (
++            isinstance(configured_finish_reasons, list)
++            and len(configured_finish_reasons) > 0
++        ):
 +            allowed_finish_reasons = {
 +                str(reason).strip().upper()
 +                for reason in configured_finish_reasons
@@ -290,7 +293,7 @@ index 6b7ec4dfb1..9f46122ad9 100644
      def get_supported_openai_params(self, model: str) -> list:
          base_params = [
              "frequency_penalty",
-@@ -651,7 +831,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -640,7 +823,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              _response_headers=raw_response_headers,
          )
  
@@ -306,7 +309,7 @@ index 6b7ec4dfb1..9f46122ad9 100644
      def get_error_class(
          self, error_message: str, status_code: int, headers: Union[dict, httpx.Headers]
 diff --git a/litellm/llms/openai_like/README.md b/litellm/llms/openai_like/README.md
-index e9aaafe48a..9ad9006e3b 100644
+index e9aaafe..9ad9006 100644
 --- a/litellm/llms/openai_like/README.md
 +++ b/litellm/llms/openai_like/README.md
 @@ -59,7 +59,13 @@ That's it! The provider will be automatically loaded and available.
@@ -352,10 +355,10 @@ index e9aaafe48a..9ad9006e3b 100644
  
  1. `json_loader.py` checks `supported_endpoints` for `/v1/responses`
 diff --git a/litellm/llms/openai_like/chat/transformation.py b/litellm/llms/openai_like/chat/transformation.py
-index 1c8cd574c0..5c1b8e0534 100644
+index a2c847a..4a2ed42 100644
 --- a/litellm/llms/openai_like/chat/transformation.py
 +++ b/litellm/llms/openai_like/chat/transformation.py
-@@ -77,8 +77,8 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -75,8 +75,8 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
                      usage[key] = 0
          return response_json
  
@@ -365,7 +368,7 @@ index 1c8cd574c0..5c1b8e0534 100644
          model: str,
          response: httpx.Response,
          model_response: ModelResponse,
-@@ -93,6 +93,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -91,6 +91,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
          json_mode: Optional[bool],
          custom_llm_provider: Optional[str],
          base_model: Optional[str],
@@ -373,7 +376,7 @@ index 1c8cd574c0..5c1b8e0534 100644
      ) -> ModelResponse:
          response_json = response.json()
          logging_obj.post_call(
-@@ -103,14 +104,12 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -101,11 +102,11 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
          )
  
          # Sanitize the usage object at the source
@@ -382,16 +385,12 @@ index 1c8cd574c0..5c1b8e0534 100644
  
          if json_mode:
              for choice in response_json["choices"]:
--                message = (
--                    OpenAILikeChatConfig._json_mode_convert_tool_response_to_message(
--                        choice.get("message"), json_mode
--                    )
+-                message = OpenAILikeChatConfig._json_mode_convert_tool_response_to_message(
 +                message = self._json_mode_convert_tool_response_to_message(
-+                    choice.get("message"), json_mode
+                     choice.get("message"), json_mode
                  )
                  choice["message"] = message
- 
-@@ -123,7 +122,13 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -117,7 +118,13 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
  
          if base_model is not None:
              returned_response._hidden_params["model"] = base_model
@@ -406,7 +405,7 @@ index 1c8cd574c0..5c1b8e0534 100644
  
      def transform_response(
          self,
-@@ -139,7 +144,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -133,7 +140,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
          api_key: Optional[str] = None,
          json_mode: Optional[bool] = None,
      ) -> ModelResponse:
@@ -415,7 +414,7 @@ index 1c8cd574c0..5c1b8e0534 100644
              model=model,
              response=raw_response,
              model_response=model_response,
-@@ -154,6 +159,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
+@@ -148,6 +155,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
              json_mode=json_mode,
              custom_llm_provider=None,
              base_model=None,
@@ -424,10 +423,10 @@ index 1c8cd574c0..5c1b8e0534 100644
  
      def map_openai_params(
 diff --git a/litellm/llms/openai_like/dynamic_config.py b/litellm/llms/openai_like/dynamic_config.py
-index fac453447f..66dfae6ba6 100644
+index 3c763ed..7233198 100644
 --- a/litellm/llms/openai_like/dynamic_config.py
 +++ b/litellm/llms/openai_like/dynamic_config.py
-@@ -73,6 +73,12 @@ def create_config_class(provider: SimpleProviderConfig):
+@@ -67,6 +67,12 @@ def create_config_class(provider: SimpleProviderConfig):
  
              return resolved_base, resolved_key
  
@@ -440,7 +439,7 @@ index fac453447f..66dfae6ba6 100644
          def get_complete_url(
              self,
              api_base: Optional[str],
-@@ -194,6 +200,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
+@@ -187,6 +193,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
          def custom_llm_provider(self):  # type: ignore[override]
              return provider.slug
  
@@ -454,23 +453,23 @@ index fac453447f..66dfae6ba6 100644
              self,
              headers: dict,
 diff --git a/litellm/main.py b/litellm/main.py
-index daa0fb063a..f636af404f 100644
+index 7f6550c..3d8b17b 100644
 --- a/litellm/main.py
 +++ b/litellm/main.py
-@@ -1597,6 +1597,7 @@ def completion(  # type: ignore # noqa: PLR0915
+@@ -5231,6 +5231,7 @@ def completion(  # type: ignore
              max_retries=max_retries,
              timeout=timeout,
              litellm_request_debug=kwargs.get("litellm_request_debug", False),
 +            openai_like_behavior=kwargs.get("openai_like_behavior"),
              tpm=kwargs.get("tpm"),
              rpm=kwargs.get("rpm"),
-         )
+             use_xai_oauth=kwargs.get("use_xai_oauth", False),
 diff --git a/litellm/types/router.py b/litellm/types/router.py
-index 33102f9ec4..da5934154c 100644
+index 0c3485d..d18bd26 100644
 --- a/litellm/types/router.py
 +++ b/litellm/types/router.py
-@@ -204,6 +204,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
-     use_chat_completions_api: Optional[bool] = None
+@@ -245,6 +245,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
+     )
      model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
      merge_reasoning_content_in_choices: Optional[bool] = False
 +    openai_like_behavior: Optional[Dict[str, Any]] = None
@@ -478,10 +477,10 @@ index 33102f9ec4..da5934154c 100644
      mock_response: Optional[Union[str, ModelResponse, Exception, Any]] = None
  
 diff --git a/litellm/utils.py b/litellm/utils.py
-index e1ad1db63e..e25a791a05 100644
+index 9570c2c..8c089e2 100644
 --- a/litellm/utils.py
 +++ b/litellm/utils.py
-@@ -3716,6 +3716,7 @@ class PreProcessNonDefaultParams:
+@@ -3546,6 +3546,7 @@ class PreProcessNonDefaultParams:
                  and k != "drop_params"
                  and k != "allowed_openai_params"
                  and k != "additional_drop_params"
@@ -489,8 +488,8 @@ index e1ad1db63e..e25a791a05 100644
                  and k not in additional_endpoint_specific_params
                  and k in default_param_values
                  and v != default_param_values[k]
-@@ -4873,6 +4874,8 @@ def add_provider_specific_params_to_optional_params(
-         ):
+@@ -4338,6 +4339,8 @@ def add_provider_specific_params_to_optional_params(
+         if _should_drop_param(k="extra_body", additional_drop_params=additional_drop_params) is False:
              extra_body = dict(passed_params.pop("extra_body", None) or {})
              for k in passed_params.keys():
 +                if k == "openai_like_behavior":
@@ -498,12 +497,3 @@ index e1ad1db63e..e25a791a05 100644
                  if k not in openai_params and passed_params[k] is not None:
                      extra_body[k] = passed_params[k]
              if not isinstance(optional_params.get("extra_body"), dict):
-@@ -4899,6 +4902,8 @@ def add_provider_specific_params_to_optional_params(
-             )
-     else:
-         for k in passed_params.keys():
-+            if k == "openai_like_behavior":
-+                continue
-             if k not in openai_params and passed_params[k] is not None:
-                 if _should_drop_param(
-                     k=k, additional_drop_params=additional_drop_params

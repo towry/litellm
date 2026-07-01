@@ -3,9 +3,8 @@
 0003-responses-skip-empty-assistant-stubs.patch
 0004-responses-tool-result-raw-string.patch
 0006-gemini-empty-tool-response-invalid-and-sanitize-visible-text.patch
-0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
-0008-fix-server-tool-use-dict-web-search-requests.patch
 0009-openai-compatible-embedding-dimensions.patch
 0010-anthropic-passthrough-hoist-system-messages.patch
 0011-budget-limiter-skip-missing-provider.patch
 0012-openai-strip-message-model-id.patch
+0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch

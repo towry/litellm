@@ -1,5 +1,5 @@
 diff --git a/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py b/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
-index 3f1bccaccf..e1ba4eb998 100644
+index 678877c..67eec55 100644
 --- a/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
 +++ b/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
 @@ -2,6 +2,7 @@
@@ -10,7 +10,7 @@ index 3f1bccaccf..e1ba4eb998 100644
  import time
  from copy import deepcopy
  from functools import partial
-@@ -167,6 +168,15 @@ class VertexAIBaseConfig:
+@@ -169,6 +170,15 @@ class VertexAIBaseConfig:
  
  
  class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
@@ -26,7 +26,7 @@ index 3f1bccaccf..e1ba4eb998 100644
      """
      Reference: https://cloud.google.com/vertex-ai/docs/generative-ai/chat/test-chat-prompts
      Reference: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference
-@@ -1788,6 +1798,92 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
+@@ -1926,6 +1936,92 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
          else:
              return "stop"
  
@@ -119,22 +119,30 @@ index 3f1bccaccf..e1ba4eb998 100644
      @staticmethod
      def _check_prompt_level_content_filter(
          processed_chunk: GenerateContentResponseBody,
-@@ -2043,6 +2139,10 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
-                 ) = VertexGeminiConfig().get_assistant_content_message(
-                     parts=candidate["content"]["parts"]
-                 )
+@@ -2234,7 +2330,13 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
+                 (
+                     content,
+                     reasoning_content,
+-                ) = VertexGeminiConfig().get_assistant_content_message(parts=candidate["content"]["parts"])
++                ) = VertexGeminiConfig().get_assistant_content_message(
++                    parts=candidate["content"]["parts"]
++                )
 +                content = VertexGeminiConfig._sanitize_visible_text(content)
 +                reasoning_content = VertexGeminiConfig._sanitize_visible_text(
 +                    reasoning_content
 +                )
  
-                 audio_response = (
-                     VertexGeminiConfig()._extract_audio_response_from_parts(
-@@ -2078,10 +2178,10 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
-                     cast(Dict[str, Any], chat_completion_message)[
-                         "images"
-                     ] = image_response
+                 audio_response = VertexGeminiConfig()._extract_audio_response_from_parts(
+                     parts=candidate["content"]["parts"]
+@@ -2262,11 +2364,13 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
+                     chat_completion_message["content"] = None  # OpenAI spec
+                 if image_response is not None:
+                     # Handle image response - combine with text content into structured format
+-                    cast(Dict[str, Any], chat_completion_message)["images"] = image_response
 -                if content is not None:
++                    cast(Dict[str, Any], chat_completion_message)[
++                        "images"
++                    ] = image_response
 +                if content is not None and content != "":
                      chat_completion_message["content"] = content
  
@@ -143,9 +151,9 @@ index 3f1bccaccf..e1ba4eb998 100644
                      chat_completion_message["reasoning_content"] = reasoning_content
  
                  if candidate_grounding_metadata:
-@@ -2273,6 +2373,14 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
-                     _candidates, model_response, logging_obj.optional_params
-                 )
+@@ -2457,6 +2561,13 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
+             if web_search_requests is not None:
+                 cast(PromptTokensDetailsWrapper, usage.prompt_tokens_details).web_search_requests = web_search_requests
  
 +            VertexGeminiConfig._raise_on_invalid_empty_tool_response(
 +                model_response=model_response,
@@ -154,7 +162,6 @@ index 3f1bccaccf..e1ba4eb998 100644
 +                response_id=response_id,
 +                headers=raw_response.headers,
 +            )
-+
-             usage = VertexGeminiConfig._calculate_usage(
-                 completion_response=completion_response
-             )
+             setattr(model_response, "usage", usage)
+ 
+             ## ADD METADATA TO RESPONSE ##

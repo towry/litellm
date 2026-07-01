@@ -1,23 +1,27 @@
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 5464b5bb7e..a29131e5aa 100644
+index 396ad5b..4d3c3ad 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -415,6 +415,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -388,6 +388,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          from litellm.types.llms.openai import ChatCompletionToolParam
  
          for i, message in enumerate(messages):
 +            cast(dict, message).pop("model_id", None)
              messages[i] = cast(
-                 AllMessageValues, filter_value_from_dict(message, "cache_control")  # type: ignore
-             )
+                 AllMessageValues,
+                 filter_value_from_dict(message, "cache_control"),  # type: ignore
 diff --git a/litellm/llms/openai/openai.py b/litellm/llms/openai/openai.py
-index 194f29648c..58bc2b43df 100644
+index 6b19114..7f52d1d 100644
 --- a/litellm/llms/openai/openai.py
 +++ b/litellm/llms/openai/openai.py
-@@ -210,6 +210,8 @@ class OpenAIConfig(BaseConfig):
-     def _transform_messages(
-         self, messages: List[AllMessageValues], model: str
-     ) -> List[AllMessageValues]:
+@@ -205,7 +205,11 @@ class OpenAIConfig(BaseConfig):
+                 optional_params[param] = value
+         return optional_params
+ 
+-    def _transform_messages(self, messages: List[AllMessageValues], model: str) -> List[AllMessageValues]:
++    def _transform_messages(
++        self, messages: List[AllMessageValues], model: str
++    ) -> List[AllMessageValues]:
 +        for message in messages:
 +            cast(dict, message).pop("model_id", None)
          return messages

@@ -1,5 +1,5 @@
 diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-index f94232fa45..7b3720aed2 100644
+index e78802a..6eeb2df 100644
 --- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 +++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 @@ -253,6 +253,49 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
@@ -52,7 +52,7 @@ index f94232fa45..7b3720aed2 100644
      def transform_anthropic_messages_request(
          self,
          model: str,
-@@ -284,6 +327,13 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+@@ -284,6 +327,14 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
              optional_params=anthropic_messages_optional_request_params,
          )
  
@@ -63,6 +63,7 @@ index f94232fa45..7b3720aed2 100644
 +            optional_params=anthropic_messages_optional_request_params,
 +        )
 +
-         # Filter out x-anthropic-billing-header from system messages
++        # Filter out x-anthropic-billing-header from system messages
          system_param = anthropic_messages_optional_request_params.get("system")
-         if system_param is not None:
+         if self.should_strip_billing_metadata() and system_param is not None:
+             filtered_system = self._filter_billing_headers_from_system(system_param)

@@ -1,17 +1,17 @@
 diff --git a/litellm/router_strategy/budget_limiter.py b/litellm/router_strategy/budget_limiter.py
-index f677e40b93..5727d02d0a 100644
+index 067f38a..5c00826 100644
 --- a/litellm/router_strategy/budget_limiter.py
 +++ b/litellm/router_strategy/budget_limiter.py
-@@ -438,13 +438,22 @@ class RouterBudgetLimiting(CustomLogger):
+@@ -407,11 +407,22 @@ class RouterBudgetLimiting(CustomLogger):
  
          response_cost: float = standard_logging_payload.get("response_cost", 0)
          model_id: str = str(standard_logging_payload.get("model_id", ""))
--        custom_llm_provider: str = kwargs.get("litellm_params", {}).get(
-+        custom_llm_provider: Optional[str] = kwargs.get("litellm_params", {}).get(
-             "custom_llm_provider", None
-         )
+-        custom_llm_provider: str = kwargs.get("litellm_params", {}).get("custom_llm_provider", None)
 -        if custom_llm_provider is None:
 -            raise ValueError("custom_llm_provider is required")
++        custom_llm_provider: Optional[str] = kwargs.get("litellm_params", {}).get(
++            "custom_llm_provider", None
++        )
  
 -        budget_config = self._get_budget_config_for_provider(custom_llm_provider)
 +        # NOTE: ``custom_llm_provider`` is absent on some request paths (e.g. the
@@ -28,4 +28,4 @@ index f677e40b93..5727d02d0a 100644
 +        )
          if budget_config:
              # increment spend for provider
-             spend_key = (
+             spend_key = f"provider_spend:{custom_llm_provider}:{budget_config.budget_duration}"
