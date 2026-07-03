@@ -1,0 +1,107 @@
+diff --git a/litellm/litellm_core_utils/json_validation_rule.py b/litellm/litellm_core_utils/json_validation_rule.py
+index c73b62f8a2..4c78efec12 100644
+--- a/litellm/litellm_core_utils/json_validation_rule.py
++++ b/litellm/litellm_core_utils/json_validation_rule.py
+@@ -96,6 +96,36 @@ def normalize_tool_schema(tool: Dict[str, Any]) -> Dict[str, Any]:
+     return normalized_tool
+ 
+ 
++def drop_none_schema_enum_values(
++    schema: Union[Dict[str, Any], List[Any], Any],
++    depth: int = 0,
++    max_depth: int = DEFAULT_MAX_RECURSE_DEPTH,
++) -> Union[Dict[str, Any], List[Any], Any]:
++    if depth >= max_depth:
++        return schema
++
++    if isinstance(schema, list):
++        return [drop_none_schema_enum_values(item, depth + 1, max_depth) for item in schema]
++
++    if isinstance(schema, dict):
++        normalized_schema: Dict[str, Any] = {}
++        for key, value in schema.items():
++            if key == "enum" and value is None:
++                continue
++            if key == "enum" and isinstance(value, list):
++                enum_values = [item for item in value if item is not None]
++                if enum_values:
++                    normalized_schema[key] = enum_values
++                continue
++            if isinstance(value, (dict, list)):
++                normalized_schema[key] = drop_none_schema_enum_values(value, depth + 1, max_depth)
++            else:
++                normalized_schema[key] = value
++        return normalized_schema
++
++    return schema
++
++
+ def validate_schema(schema: dict, response: str):
+     """
+     Validate if the returned json response follows the schema.
+diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
+index 201425dba9..3fb6364b25 100644
+--- a/litellm/llms/openai/chat/gpt_transformation.py
++++ b/litellm/llms/openai/chat/gpt_transformation.py
+@@ -30,6 +30,7 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
+     _handle_invalid_parallel_tool_calls,
+     _should_convert_tool_call_to_json_mode,
+ )
++from litellm.litellm_core_utils.json_validation_rule import drop_none_schema_enum_values
+ from litellm.litellm_core_utils.prompt_templates.common_utils import get_tool_call_names
+ from litellm.litellm_core_utils.prompt_templates.image_handling import (
+     async_convert_url_to_base64,
+@@ -438,9 +439,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+             dict: The transformed request. Sent as the body of the API call.
+         """
+         messages = self._transform_messages(messages=messages, model=model)
+-        if not self._should_preserve_cache_control_for_endpoint(
++        preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
+             litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+-        ):
++        )
++        if preserve_cache_control:
++            optional_params = cast(dict, drop_none_schema_enum_values(optional_params))
++        else:
+             messages, tools = self.remove_cache_control_flag_from_messages_and_tools(
+                 model=model, messages=messages, tools=optional_params.get("tools", [])
+             )
+@@ -464,9 +468,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         headers: dict,
+     ) -> dict:
+         transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
+-        if not self._should_preserve_cache_control_for_endpoint(
++        preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
+             litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+-        ):
++        )
++        if preserve_cache_control:
++            optional_params = cast(dict, drop_none_schema_enum_values(optional_params))
++        else:
+             (
+                 transformed_messages,
+                 tools,
+diff --git a/litellm/llms/openai/openai.py b/litellm/llms/openai/openai.py
+index 7f52d1d688..1b94f4cc75 100644
+--- a/litellm/llms/openai/openai.py
++++ b/litellm/llms/openai/openai.py
+@@ -34,6 +34,7 @@ from litellm._logging import verbose_logger
+ from litellm.constants import DEFAULT_MAX_RETRIES
+ from litellm.files.types import FileContentStreamingResult
+ from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
++from litellm.litellm_core_utils.json_validation_rule import drop_none_schema_enum_values
+ from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
+ from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+ from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+@@ -267,6 +268,11 @@ class OpenAIConfig(BaseConfig):
+         headers: dict,
+     ) -> dict:
+         messages = self._transform_messages(messages=messages, model=model)
++        api_base = litellm_params.get("api_base")
++        if isinstance(api_base, str):
++            hostname = urlparse(api_base).hostname
++            if hostname is not None and hostname != "openai.com" and not hostname.endswith(".openai.com"):
++                optional_params = cast(dict, drop_none_schema_enum_values(optional_params))
+         return {"model": model, "messages": messages, **optional_params}
+ 
+     def transform_response(
