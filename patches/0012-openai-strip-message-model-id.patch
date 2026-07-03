@@ -1,17 +1,25 @@
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 396ad5b..4d3c3ad 100644
+index 396ad5b105..201425dba9 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -388,6 +388,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
-         from litellm.types.llms.openai import ChatCompletionToolParam
+@@ -351,6 +351,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
  
-         for i, message in enumerate(messages):
-+            cast(dict, message).pop("model_id", None)
-             messages[i] = cast(
-                 AllMessageValues,
-                 filter_value_from_dict(message, "cache_control"),  # type: ignore
+         async def _async_transform():
+             for message in messages:
++                cast(dict, message).pop("model_id", None)
+                 message_content = message.get("content")
+                 message_role = message.get("role")
+ 
+@@ -366,6 +367,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+             return _async_transform()
+         else:
+             for message in messages:
++                cast(dict, message).pop("model_id", None)
+                 message_content = message.get("content")
+                 message_role = message.get("role")
+                 if message_role == "user" and message_content and isinstance(message_content, list):
 diff --git a/litellm/llms/openai/openai.py b/litellm/llms/openai/openai.py
-index 6b19114..7f52d1d 100644
+index 6b191144a1..7f52d1d688 100644
 --- a/litellm/llms/openai/openai.py
 +++ b/litellm/llms/openai/openai.py
 @@ -205,7 +205,11 @@ class OpenAIConfig(BaseConfig):
