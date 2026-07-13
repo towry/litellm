@@ -93,10 +93,10 @@ index 4d3c3ad..b329043 100644
  Support for gpt model family
  """
  
+ import json
 +import re
  from typing import (
      TYPE_CHECKING,
-     Any,
 @@ -111,6 +112,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      temperature: Optional[int] = None
      top_p: Optional[int] = None

@@ -1,10 +1,10 @@
 diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-index e78802a..6eeb2df 100644
+index 01412d3c8b..94a7ace4e4 100644
 --- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 +++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-@@ -253,6 +253,49 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
-         existing_output_config.setdefault("effort", effort)
-         optional_params["output_config"] = existing_output_config
+@@ -391,6 +391,49 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+             return thinking
+         return {**thinking, "budget_tokens": max_tokens - 1}
  
 +    @staticmethod
 +    def _hoist_system_messages_to_top_level(
@@ -52,8 +52,8 @@ index e78802a..6eeb2df 100644
      def transform_anthropic_messages_request(
          self,
          model: str,
-@@ -284,6 +327,14 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
-             optional_params=anthropic_messages_optional_request_params,
+@@ -431,6 +474,14 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+             custom_llm_provider=self._resolved_provider,
          )
  
 +        # Hoist stray system-role messages into the top-level system param so the

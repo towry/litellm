@@ -1,10 +1,10 @@
 diff --git a/litellm/responses/litellm_completion_transformation/transformation.py b/litellm/responses/litellm_completion_transformation/transformation.py
-index 866698b..626223a 100644
+index 6b1ca3564e..e312a18c72 100644
 --- a/litellm/responses/litellm_completion_transformation/transformation.py
 +++ b/litellm/responses/litellm_completion_transformation/transformation.py
-@@ -399,6 +399,24 @@ class LiteLLMCompletionResponsesConfig:
+@@ -396,6 +396,24 @@ class LiteLLMCompletionResponsesConfig:
          elif isinstance(input, list):
-             existing_tool_call_ids: Set[str] = set()
+             existing_tool_call_ids: set[str] = set()
              for _input in input:
 +                if (
 +                    _input.get("role") == "assistant"
