@@ -1,69 +1,50 @@
 diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-index 01412d3c8b..94a7ace4e4 100644
+index 05679bf39a..17034101e7 100644
 --- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 +++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-@@ -391,6 +391,49 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
-             return thinking
-         return {**thinking, "budget_tokens": max_tokens - 1}
+@@ -405,6 +405,33 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+         if thinking_enabled or effort_enabled:
+             optional_params.pop("temperature", None)
  
 +    @staticmethod
-+    def _hoist_system_messages_to_top_level(
-+        messages: List[Dict], optional_params: Dict
-+    ) -> List[Dict]:
-+        """
-+        Move any ``role: "system"`` entries out of ``messages`` and merge their
-+        content into the top-level ``system`` param.
-+
-+        The Anthropic /v1/messages spec only permits ``user``/``assistant`` roles
-+        inside ``messages`` and carries the system prompt as a top-level field.
-+        Some clients (e.g. Claude Code's hook-injected additional context) instead
-+        place a ``role: "system"`` entry inside ``messages``. Lenient upstreams
-+        accept it, but strict ones (e.g. Volcengine Ark) reject the stray system
-+        role with a 400. Hoisting keeps the forwarded request spec-compliant.
-+
-+        No-op when no system-role message is present.
-+        """
-+        if not any(
-+            isinstance(m, dict) and m.get("role") == "system" for m in messages
-+        ):
++    def _hoist_system_messages_to_top_level(messages: List[Dict], optional_params: Dict) -> List[Dict]:
++        """Move system-role messages into the Anthropic Messages top-level system parameter."""
++        system_messages = [
++            message for message in messages if isinstance(message, dict) and message.get("role") == "system"
++        ]
++        if not system_messages:
 +            return messages
 +
 +        def _as_blocks(content: object) -> List[Dict]:
 +            if isinstance(content, str):
 +                return [{"type": "text", "text": content}] if content else []
 +            if isinstance(content, list):
-+                return [b for b in content if isinstance(b, dict)]
++                return [block for block in content if isinstance(block, dict)]
 +            return []
 +
-+        merged_system: List[Dict] = _as_blocks(optional_params.get("system"))
-+
-+        kept_messages: List[Dict] = []
-+        for message in messages:
-+            if isinstance(message, dict) and message.get("role") == "system":
-+                merged_system.extend(_as_blocks(message.get("content")))
-+            else:
-+                kept_messages.append(message)
-+
++        merged_system = [
++            *_as_blocks(optional_params.get("system")),
++            *(block for message in system_messages for block in _as_blocks(message.get("content"))),
++        ]
 +        if merged_system:
 +            optional_params["system"] = merged_system
 +
-+        return kept_messages
++        return [
++            message for message in messages if not (isinstance(message, dict) and message.get("role") == "system")
++        ]
 +
      def transform_anthropic_messages_request(
          self,
          model: str,
-@@ -431,6 +474,14 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+@@ -451,6 +478,11 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
              custom_llm_provider=self._resolved_provider,
          )
  
-+        # Hoist stray system-role messages into the top-level system param so the
-+        # forwarded request stays Anthropic-spec-compliant for strict upstreams.
 +        messages = self._hoist_system_messages_to_top_level(
 +            messages=messages,
 +            optional_params=anthropic_messages_optional_request_params,
 +        )
 +
-+        # Filter out x-anthropic-billing-header from system messages
          system_param = anthropic_messages_optional_request_params.get("system")
          if self.should_strip_billing_metadata() and system_param is not None:
              filtered_system = self._filter_billing_headers_from_system(system_param)

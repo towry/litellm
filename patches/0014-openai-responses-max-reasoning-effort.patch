@@ -1,0 +1,52 @@
+diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
+index aecb2552b5..6d7d31b5f4 100644
+--- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
++++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
+@@ -931,6 +931,8 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+             return Reasoning(effort="high", summary="detailed") if auto_summary_enabled else Reasoning(effort="high")
+         elif reasoning_effort == "xhigh":
+             return Reasoning(effort="xhigh", summary="detailed") if auto_summary_enabled else Reasoning(effort="xhigh")  # type: ignore[typeddict-item]
++        elif reasoning_effort == "max":
++            return Reasoning(effort="max", summary="detailed") if auto_summary_enabled else Reasoning(effort="max")
+         elif reasoning_effort == "medium":
+             return (
+                 Reasoning(effort="medium", summary="detailed") if auto_summary_enabled else Reasoning(effort="medium")
+diff --git a/litellm/main.py b/litellm/main.py
+index 6fd68921fb..89d72a0880 100644
+--- a/litellm/main.py
++++ b/litellm/main.py
+@@ -434,7 +434,9 @@ async def acompletion(
+     logprobs: Optional[bool] = None,
+     top_logprobs: Optional[int] = None,
+     deployment_id=None,
+-    reasoning_effort: Optional[Literal["none", "minimal", "low", "medium", "high", "xhigh", "default"]] = None,
++    reasoning_effort: Optional[
++        Literal["none", "minimal", "low", "medium", "high", "xhigh", "max", "default"]
++    ] = None,
+     verbosity: Optional[Literal["low", "medium", "high"]] = None,
+     safety_identifier: Optional[str] = None,
+     service_tier: Optional[str] = None,
+@@ -4816,7 +4818,9 @@ def completion(  # type: ignore
+     logit_bias: Optional[dict] = None,
+     user: Optional[str] = None,
+     # openai v1.0+ new params
+-    reasoning_effort: Optional[Literal["none", "minimal", "low", "medium", "high", "xhigh", "default"]] = None,
++    reasoning_effort: Optional[
++        Literal["none", "minimal", "low", "medium", "high", "xhigh", "max", "default"]
++    ] = None,
+     verbosity: Optional[Literal["low", "medium", "high"]] = None,
+     response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+     seed: Optional[int] = None,
+diff --git a/litellm/types/llms/openai.py b/litellm/types/llms/openai.py
+index daac1e4506..b52acfe5cc 100644
+--- a/litellm/types/llms/openai.py
++++ b/litellm/types/llms/openai.py
+@@ -1781,7 +1781,7 @@ ResponsesAPIStreamingResponse = Annotated[
+ ]
+ 
+ 
+-REASONING_EFFORT = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
++REASONING_EFFORT = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+ 
+ 
+ class OpenAIRealtimeStreamSession(TypedDict, total=False):
