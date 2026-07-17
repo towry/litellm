@@ -80,7 +80,7 @@ while IFS= read -r patch || [[ -n "$patch" ]]; do
     exit 1
   fi
 
-  if ! git apply --3way "$patch_path"; then
+  if ! git apply "$patch_path"; then
     echo "Patch apply failed: $patch" >&2
     exit 1
   fi
