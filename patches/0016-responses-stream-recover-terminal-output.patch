@@ -1,0 +1,198 @@
+diff --git a/litellm/llms/base_llm/responses/transformation.py b/litellm/llms/base_llm/responses/transformation.py
+index c6453745e5..4a85af98f1 100644
+--- a/litellm/llms/base_llm/responses/transformation.py
++++ b/litellm/llms/base_llm/responses/transformation.py
+@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
+ 
+ import httpx
+ 
++from litellm.responses.sse_output_recovery import ResponsesSSEOutputAccumulator
+ from litellm.types.llms.openai import (
+     ResponseInputParam,
+     ResponsesAPIOptionalRequestParams,
+@@ -62,6 +63,9 @@ class BaseResponsesAPIConfig(ABC):
+         """
+         return False
+ 
++    def create_streaming_output_recovery(self) -> Optional[ResponsesSSEOutputAccumulator]:
++        return None
++
+     def sign_request(
+         self,
+         headers: dict,
+diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
+index 8b5fae4ef3..6619662808 100644
+--- a/litellm/llms/chatgpt/responses/transformation.py
++++ b/litellm/llms/chatgpt/responses/transformation.py
+@@ -8,9 +8,8 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
+ from litellm.llms.openai.common_utils import OpenAIError
+ from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+ from litellm.responses.sse_output_recovery import (
++    ResponsesSSEOutputAccumulator,
+     parse_sse_json_chunk,
+-    record_output_item_chunk,
+-    record_output_text_chunk,
+ )
+ from litellm.types.llms.openai import (
+     ResponsesAPIResponse,
+@@ -38,6 +37,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+     def custom_llm_provider(self) -> LlmProviders:
+         return LlmProviders.CHATGPT
+ 
++    def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator:
++        return ResponsesSSEOutputAccumulator()
++
+     def validate_environment(
+         self,
+         headers: dict,
+@@ -149,39 +151,17 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+     ) -> tuple[Optional[ResponsesAPIResponse], Optional[str]]:
+         completed_response = None
+         error_message = None
+-        streamed_output_items: Dict[int, dict] = {}
+-        text_only_output_items: Dict[int, dict] = {}
++        output_recovery = self.create_streaming_output_recovery()
+         for chunk in body_text.splitlines():
+             parsed_chunk = parse_sse_json_chunk(chunk)
+             if parsed_chunk is None:
+                 continue
++            parsed_chunk = output_recovery.process_chunk(parsed_chunk)
+ 
+             event_type = parsed_chunk.get("type")
+-            if event_type == ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE:
+-                record_output_item_chunk(
+-                    parsed_chunk=parsed_chunk,
+-                    output_items=streamed_output_items,
+-                )
+-                continue
+-
+-            if event_type == ResponsesAPIStreamEvents.OUTPUT_TEXT_DONE:
+-                record_output_text_chunk(
+-                    parsed_chunk=parsed_chunk,
+-                    output_items=streamed_output_items,
+-                    text_only_items=text_only_output_items,
+-                )
+-                continue
+-
+             if event_type == ResponsesAPIStreamEvents.RESPONSE_COMPLETED:
+-                # Real OUTPUT_ITEM_DONE events take precedence at any given
+-                # output_index, but text-only items at indices without a
+-                # matching OUTPUT_ITEM_DONE must still be preserved (e.g.
+-                # providers that emit only OUTPUT_TEXT_DONE for some indices).
+-                merged_items: Dict[int, dict] = {**text_only_output_items}
+-                merged_items.update(streamed_output_items)
+                 completed_response = self._build_completed_response_from_chunk(
+                     parsed_chunk=parsed_chunk,
+-                    streamed_output_items=merged_items,
+                 )
+                 break
+ 
+@@ -196,14 +176,12 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+         return completed_response, error_message
+ 
+     def _build_completed_response_from_chunk(
+-        self, parsed_chunk: Dict[str, Any], streamed_output_items: Dict[int, dict]
++        self, parsed_chunk: Dict[str, Any]
+     ) -> Optional[ResponsesAPIResponse]:
+         response_payload = parsed_chunk.get("response")
+         if not isinstance(response_payload, dict):
+             return None
+         response_payload = dict(response_payload)
+-        if not response_payload.get("output") and streamed_output_items:
+-            response_payload["output"] = [item for _, item in sorted(streamed_output_items.items())]
+         if "created_at" in response_payload:
+             response_payload["created_at"] = _safe_convert_created_field(response_payload["created_at"])
+         try:
+diff --git a/litellm/responses/sse_output_recovery.py b/litellm/responses/sse_output_recovery.py
+index 1546b9414e..ee99ea6313 100644
+--- a/litellm/responses/sse_output_recovery.py
++++ b/litellm/responses/sse_output_recovery.py
+@@ -11,6 +11,7 @@ import json
+ from typing import Any, Dict, Optional
+ 
+ from litellm.constants import STREAM_SSE_DONE_STRING
++from litellm.types.llms.openai import ResponsesAPIStreamEvents
+ 
+ _MAX_CONTENT_INDEX = 1024
+ 
+@@ -128,3 +129,43 @@ def record_output_text_chunk(
+         content_item["annotations"] = parsed_chunk["annotations"]
+     else:
+         content_item.setdefault("annotations", [])
++
++
++class ResponsesSSEOutputAccumulator:
++    def __init__(self) -> None:
++        self._output_items: Dict[int, Dict[str, Any]] = {}
++        self._text_only_items: Dict[int, Dict[str, Any]] = {}
++
++    def process_chunk(self, parsed_chunk: Dict[str, Any]) -> Dict[str, Any]:
++        event_type = parsed_chunk.get("type")
++        if event_type == ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE:
++            record_output_item_chunk(
++                parsed_chunk=parsed_chunk,
++                output_items=self._output_items,
++            )
++            return parsed_chunk
++        if event_type == ResponsesAPIStreamEvents.OUTPUT_TEXT_DONE:
++            record_output_text_chunk(
++                parsed_chunk=parsed_chunk,
++                output_items=self._output_items,
++                text_only_items=self._text_only_items,
++            )
++            return parsed_chunk
++        if event_type != ResponsesAPIStreamEvents.RESPONSE_COMPLETED:
++            return parsed_chunk
++
++        response_payload = parsed_chunk.get("response")
++        if not isinstance(response_payload, dict) or response_payload.get("output"):
++            return parsed_chunk
++
++        recovered_items = {**self._text_only_items, **self._output_items}
++        if not recovered_items:
++            return parsed_chunk
++
++        return {
++            **parsed_chunk,
++            "response": {
++                **response_payload,
++                "output": [item for _, item in sorted(recovered_items.items())],
++            },
++        }
+diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streaming_iterator.py
+index 357a7ecefe..0ff94ab19d 100644
+--- a/litellm/responses/streaming_iterator.py
++++ b/litellm/responses/streaming_iterator.py
+@@ -119,6 +119,11 @@ class BaseResponsesAPIStreamingIterator:
+         self._completed_response_cache_hit: Optional[bool] = None
+         self._persist_completed_response_before_logging = True
+         self._stream_created_time: float = time.time()
++        self._streaming_output_recovery = (
++            responses_api_provider_config.create_streaming_output_recovery()
++            if responses_api_provider_config is not None
++            else None
++        )
+ 
+         # track request context for hooks
+         self.litellm_metadata = litellm_metadata
+@@ -180,6 +185,8 @@ class BaseResponsesAPIStreamingIterator:
+             if isinstance(parsed_chunk, dict):
+                 if self.responses_api_provider_config is None:
+                     raise ValueError("responses_api_provider_config is required to process live streaming chunks")
++                if self._streaming_output_recovery is not None:
++                    parsed_chunk = self._streaming_output_recovery.process_chunk(parsed_chunk)
+                 openai_responses_api_chunk = self.responses_api_provider_config.transform_streaming_response(
+                     model=self.model,
+                     parsed_chunk=parsed_chunk,
+diff --git a/litellm/router.py b/litellm/router.py
+index 487d6a3122..a87a0bd726 100644
+--- a/litellm/router.py
++++ b/litellm/router.py
+@@ -2447,6 +2447,7 @@ class Router:
+                 self._completed_response_cache_hit = None
+                 self._persist_completed_response_before_logging = True
+                 self._stream_created_time = time.time()
++                self._streaming_output_recovery = getattr(source_iterator, "_streaming_output_recovery", None)
+                 self.litellm_metadata = getattr(source_iterator, "litellm_metadata", None)
+                 self.custom_llm_provider = getattr(source_iterator, "custom_llm_provider", None)
+                 self.request_data = getattr(source_iterator, "request_data", {}) or {}

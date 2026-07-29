@@ -10,3 +10,4 @@
 0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
 0014-openai-responses-max-reasoning-effort.patch
 0015-chatgpt-responses-hoist-system-messages.patch
+0016-responses-stream-recover-terminal-output.patch
