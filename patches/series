@@ -9,3 +9,4 @@
 0013-openai-compatible-strip-null-schema-enums.patch
 0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
 0014-openai-responses-max-reasoning-effort.patch
+0015-chatgpt-responses-hoist-system-messages.patch

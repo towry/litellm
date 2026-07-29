@@ -1,0 +1,75 @@
+diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
+--- a/litellm/llms/chatgpt/responses/transformation.py
++++ b/litellm/llms/chatgpt/responses/transformation.py
+@@ -1,4 +1,5 @@
++from collections.abc import Mapping, Sequence
+ from typing import Any, Dict, Optional
+ 
+ from litellm.exceptions import AuthenticationError
+ from litellm.litellm_core_utils.core_helpers import process_response_headers
+@@ -57,8 +58,29 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+         session_id = ensure_chatgpt_session_id(litellm_params)
+         default_headers = get_chatgpt_default_headers(access_token, account_id, session_id)
+         return {**default_headers, **headers}
+ 
++    @staticmethod
++    def _system_message_text(item: object) -> Optional[str]:
++        if not isinstance(item, Mapping) or item.get("role") != "system":
++            return None
++
++        content = item.get("content")
++        if isinstance(content, str):
++            return content
++        if not isinstance(content, Sequence):
++            return None
++
++        text_parts = tuple(
++            block.get("text")
++            for block in content
++            if isinstance(block, Mapping)
++            and isinstance(block.get("text"), str)
++        )
++        if len(text_parts) != len(content):
++            return None
++        return "\n".join(text_parts)
++
+     def transform_responses_api_request(
+         self,
+         model: str,
+         input: Any,
+@@ -72,13 +92,35 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+             response_api_optional_request_params,
+             litellm_params,
+             headers,
+         )
++        input_items = request.get("input")
++        system_instruction_parts = (
++            tuple(
++                text
++                for item in input_items
++                if (text := self._system_message_text(item)) is not None and text
++            )
++            if isinstance(input_items, list)
++            else ()
++        )
++        if isinstance(input_items, list):
++            request["input"] = [item for item in input_items if self._system_message_text(item) is None]
++
+         base_instructions = get_chatgpt_default_instructions()
+         existing_instructions = request.get("instructions")
++        if system_instruction_parts:
++            system_instructions = "\n\n".join(system_instruction_parts)
++            existing_instructions = (
++                f"{existing_instructions}\n\n{system_instructions}"
++                if existing_instructions
++                else system_instructions
++            )
+         if existing_instructions:
+             if base_instructions not in existing_instructions:
+                 request["instructions"] = f"{base_instructions}\n\n{existing_instructions}"
++            else:
++                request["instructions"] = existing_instructions
+         else:
+             request["instructions"] = base_instructions
+         request["store"] = False
+         request["stream"] = True
