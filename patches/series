@@ -11,3 +11,4 @@
 0014-openai-responses-max-reasoning-effort.patch
 0015-chatgpt-responses-hoist-system-messages.patch
 0016-responses-stream-recover-terminal-output.patch
+0017-chatgpt-responses-drop-keepalive.patch
