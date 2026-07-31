@@ -12,3 +12,4 @@
 0015-chatgpt-responses-hoist-system-messages.patch
 0016-responses-stream-recover-terminal-output.patch
 0017-chatgpt-responses-drop-keepalive.patch
+0018-openai-stream-synthesize-tool-call-ids.patch
