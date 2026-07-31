@@ -2,7 +2,7 @@ diff --git a/litellm/completion_extras/litellm_responses_transformation/transfor
 index 9cb6929..34a8157 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -122,6 +122,40 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -122,6 +122,42 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
      def __init__(self):
          pass
  
@@ -25,7 +25,7 @@ index 9cb6929..34a8157 100644
 +                    model=model,
 +                    provider=provider_enum,
 +                )
-+                if provider_config is not None:
++                if isinstance(provider_config, litellm.OpenAIGPTConfig):
 +                    return provider_config
 +            else:
 +                from litellm.llms.openai_like.dynamic_config import create_config_class
@@ -34,7 +34,9 @@ index 9cb6929..34a8157 100644
 +                if JSONProviderRegistry.exists(custom_llm_provider):
 +                    provider_config = JSONProviderRegistry.get(custom_llm_provider)
 +                    if provider_config is not None:
-+                        return create_config_class(provider_config)()
++                        dynamic_config = create_config_class(provider_config)()
++                        if isinstance(dynamic_config, litellm.OpenAIGPTConfig):
++                            return dynamic_config
 +        except Exception:
 +            pass
 +
@@ -43,7 +45,7 @@ index 9cb6929..34a8157 100644
      def _normalize_tool_choice_for_responses_api(self, tool_choice: Any) -> Any:
          """Chat tool_choice uses function.name; Responses API expects top-level name."""
          if not isinstance(tool_choice, dict) or tool_choice.get("type") != "function":
-@@ -733,7 +767,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -733,7 +769,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value
  
