@@ -1,18 +1,23 @@
 diff --git a/litellm/litellm_core_utils/streaming_handler.py b/litellm/litellm_core_utils/streaming_handler.py
 --- a/litellm/litellm_core_utils/streaming_handler.py
 +++ b/litellm/litellm_core_utils/streaming_handler.py
-@@ -205,6 +205,28 @@ class CustomStreamWrapper:
+@@ -205,6 +205,33 @@ class CustomStreamWrapper:
  
          self._post_streaming_hooks: Optional[List] = None
  
 +        self._tool_call_ids: Dict[tuple[int, int], str] = {}
 +
-+    def _normalize_tool_call_ids(self, response: ModelResponseStream) -> ModelResponseStream:
++    def _normalize_tool_call_deltas(self, response: ModelResponseStream) -> ModelResponseStream:
 +        for choice in response.choices:
 +            tool_calls = getattr(choice.delta, "tool_calls", None)
 +            if tool_calls is None:
 +                continue
 +            for tool_call in tool_calls:
++                function = getattr(tool_call, "function", None)
++                current_name = getattr(function, "name", None)
++                if isinstance(current_name, str) and not current_name.strip():
++                    function.name = None
++
 +                key = (choice.index, tool_call.index)
 +                if key in self._tool_call_ids:
 +                    tool_call.id = None
@@ -30,10 +35,10 @@ diff --git a/litellm/litellm_core_utils/streaming_handler.py b/litellm/litellm_c
      def _check_max_streaming_duration(self) -> None:
          """Raise litellm.Timeout if the stream has exceeded LITELLM_MAX_STREAMING_DURATION_SECONDS."""
          from litellm.constants import LITELLM_MAX_STREAMING_DURATION_SECONDS
-@@ -1484,4 +1507,6 @@ class CustomStreamWrapper:
+@@ -1484,4 +1512,6 @@ class CustomStreamWrapper:
                  model_response=model_response,  # type: ignore
                  response_obj=response_obj,
              )
 +            if isinstance(result, ModelResponseStream):
-+                return self._normalize_tool_call_ids(result)
++                return self._normalize_tool_call_deltas(result)
              return result
