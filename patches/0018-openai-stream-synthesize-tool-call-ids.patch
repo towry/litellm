@@ -8,7 +8,7 @@ diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/opena
  from litellm.litellm_core_utils.core_helpers import map_finish_reason
  from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
      _extract_reasoning_content,
-@@ -764,6 +765,46 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -764,6 +765,30 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
  
  
  class OpenAIChatCompletionStreamingHandler(BaseModelResponseIterator):
@@ -16,28 +16,14 @@ diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/opena
 +        super().__init__(streaming_response, sync_stream, json_mode)
 +        self._tool_call_ids: Dict[Tuple[int, int], str] = {}
 +
-+    def _ensure_tool_call_ids(self, choices: list) -> list:
-+        for choice in choices:
-+            if not isinstance(choice, dict):
-+                continue
-+            delta = choice.get("delta")
-+            if not isinstance(delta, dict):
-+                continue
-+            tool_calls = delta.get("tool_calls")
-+            if not isinstance(tool_calls, list):
-+                continue
-+
-+            choice_index = choice.get("index")
-+            if not isinstance(choice_index, int):
++    def _ensure_tool_call_ids(self, response: ModelResponseStream) -> ModelResponseStream:
++        for choice in response.choices:
++            tool_calls = getattr(choice.delta, "tool_calls", None)
++            if tool_calls is None:
 +                continue
 +            for tool_call in tool_calls:
-+                if not isinstance(tool_call, dict):
-+                    continue
-+                tool_index = tool_call.get("index")
-+                if not isinstance(tool_index, int):
-+                    continue
-+                key = (choice_index, tool_index)
-+                current_id = tool_call.get("id")
++                key = (choice.index, tool_call.index)
++                current_id = tool_call.id
 +                stored_id = self._tool_call_ids.get(key)
 +                if stored_id is None:
 +                    stored_id = (
@@ -46,20 +32,17 @@ diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/opena
 +                        else f"call_{uuid.uuid4().hex}"
 +                    )
 +                    self._tool_call_ids[key] = stored_id
-+                    if current_id != stored_id:
-+                        tool_call["id"] = stored_id
-+                elif current_id != stored_id:
-+                    tool_call["id"] = stored_id
-+        return choices
++                if current_id != stored_id:
++                    tool_call.id = stored_id
++        return response
 +
      def _map_reasoning_to_reasoning_content(self, choices: list) -> list:
          """
          Map 'reasoning' field to 'reasoning_content' field in delta.
-@@ -808,6 +849,7 @@ class OpenAIChatCompletionStreamingHandler(BaseModelResponseIterator):
-                 )
-             choices = chunk.get("choices", [])
-             choices = self._map_reasoning_to_reasoning_content(choices)
-+            choices = self._ensure_tool_call_ids(choices)
- 
-             kwargs: Dict[str, Any] = {
-                 "id": chunk.get("id"),
+@@ -820,5 +844,5 @@ class OpenAIChatCompletionStreamingHandler(BaseModelResponseIterator):
+             if "usage" in chunk and chunk["usage"] is not None:
+                 kwargs["usage"] = chunk["usage"]
+-            return ModelResponseStream(**kwargs)
++            return self._ensure_tool_call_ids(ModelResponseStream(**kwargs))
+         except Exception as e:
+             raise e
