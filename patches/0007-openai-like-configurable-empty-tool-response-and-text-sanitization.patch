@@ -8,7 +8,7 @@ index 40fd2b4003..b126b027e0 100644
  
 +    @staticmethod
 +    def _get_provider_post_processor(
-+        model: str, custom_llm_provider: Optional[str]
++        model: str, custom_llm_provider: str | None
 +    ) -> "litellm.OpenAIGPTConfig":
 +        provider_post_processor = litellm.OpenAIGPTConfig()
 +        if not isinstance(custom_llm_provider, str):
