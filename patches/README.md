@@ -7,6 +7,7 @@
 - `series`: patch 施行顺序
 - `0001-router-fallback-http-errors.patch`: 保留 Router 于 HTTP 错误时继续 fallback
 - `0011-budget-limiter-skip-missing-provider.patch`: budget limiter 在 `custom_llm_provider` 缺失（如 anthropic `/v1/messages` passthrough）时跳过 provider 级记账，而非 `raise` 中断整个回调
+- `0020-openai-strip-images-when-supports-vision-false.patch`: 当 `model_info.supports_vision` 显式为 `false` 时，将 chat `image_url` / responses `input_image` 替换为文本占位（客户端给出的 url 原样写入，不解析 path）
 
 ## Rules
 

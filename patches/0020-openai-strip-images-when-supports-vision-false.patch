@@ -1,0 +1,278 @@
+diff --git a/litellm/litellm_core_utils/prompt_templates/common_utils.py b/litellm/litellm_core_utils/prompt_templates/common_utils.py
+index c43089950e..31ed788d56 100644
+--- a/litellm/litellm_core_utils/prompt_templates/common_utils.py
++++ b/litellm/litellm_core_utils/prompt_templates/common_utils.py
+@@ -213,6 +213,199 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
+     return False
+ 
+ 
++# When model_info.supports_vision is explicitly false, replace image parts with
++# this text so text-only upstreams (e.g. Rust OpenAI-compat APIs) do not 400 on
++# unknown variant `image_url`. The image reference is written as the client sent
++# it — no path normalization.
++NON_VISION_IMAGE_PLACEHOLDER_PREFIX = "请使用mcp或者支持图片的子代理："
++
++
++def image_ref_as_given(image_url_field: Any) -> str:
++    """Return the image reference exactly as the client provided.
++
++    No path resolution, no data-URL rewriting — CLI/client string as-is.
++    """
++    if isinstance(image_url_field, str):
++        return image_url_field
++    if isinstance(image_url_field, dict):
++        url = image_url_field.get("url")
++        if url is None:
++            return ""
++        return url if isinstance(url, str) else str(url)
++    if image_url_field is None:
++        return ""
++    return str(image_url_field)
++
++
++def _explicit_supports_vision_flag(model_info: Any) -> Optional[bool]:
++    """Return supports_vision only when the key is present; else None."""
++    if model_info is None:
++        return None
++    if isinstance(model_info, dict):
++        if "supports_vision" not in model_info:
++            return None
++        return model_info.get("supports_vision")
++    # Pydantic ModelInfo (extra=allow) or similar
++    extra = getattr(model_info, "model_extra", None) or getattr(
++        model_info, "__pydantic_extra__", None
++    )
++    if isinstance(extra, dict) and "supports_vision" in extra:
++        return extra.get("supports_vision")
++    if hasattr(model_info, "__dict__") and "supports_vision" in getattr(
++        model_info, "__dict__", {}
++    ):
++        return getattr(model_info, "supports_vision")
++    # getattr alone cannot distinguish missing vs explicit None; only treat as
++    # explicit when the object claims the key (Mapping / .get with sentinel).
++    if isinstance(model_info, Mapping):
++        if "supports_vision" not in model_info:
++            return None
++        return model_info.get("supports_vision")  # type: ignore[return-value]
++    return None
++
++
++def _iter_model_info_candidates(litellm_params: Any) -> List[Any]:
++    if litellm_params is None:
++        return []
++    candidates: List[Any] = []
++    if isinstance(litellm_params, dict):
++        if litellm_params.get("model_info") is not None:
++            candidates.append(litellm_params.get("model_info"))
++        metadata = litellm_params.get("metadata") or {}
++        if isinstance(metadata, dict) and metadata.get("model_info") is not None:
++            candidates.append(metadata.get("model_info"))
++        return candidates
++    mi = getattr(litellm_params, "model_info", None)
++    if mi is not None:
++        candidates.append(mi)
++    metadata = getattr(litellm_params, "metadata", None)
++    if isinstance(metadata, dict) and metadata.get("model_info") is not None:
++        candidates.append(metadata.get("model_info"))
++    return candidates
++
++
++def model_explicitly_disables_vision(
++    model: str,
++    litellm_params: Any = None,
++    custom_llm_provider: Optional[str] = None,
++) -> bool:
++    """True only when supports_vision is explicitly set to False.
++
++    Missing / unknown models are not stripped (avoids false positives).
++    Checks deployment model_info first, then litellm model map.
++    """
++    for info in _iter_model_info_candidates(litellm_params):
++        flag = _explicit_supports_vision_flag(info)
++        if flag is not None:
++            return flag is False
++
++    provider = custom_llm_provider
++    if provider is None:
++        if isinstance(litellm_params, dict):
++            provider = litellm_params.get("custom_llm_provider")
++        elif litellm_params is not None:
++            provider = getattr(litellm_params, "custom_llm_provider", None)
++
++    try:
++        from litellm.utils import _is_explicitly_disabled_factory
++
++        return _is_explicitly_disabled_factory(
++            model=model,
++            custom_llm_provider=provider,
++            key="supports_vision",
++        )
++    except Exception as e:
++        verbose_logger.debug(
++            "model_explicitly_disables_vision: lookup failed model=%s err=%s",
++            model,
++            e,
++        )
++        return False
++
++
++def replace_image_url_blocks_in_messages(
++    messages: List[AllMessageValues],
++) -> List[AllMessageValues]:
++    """Replace chat content blocks type=image_url with a text placeholder.
++
++    The image reference is the client-provided url/string as-is.
++    Scans all roles (user, tool, assistant, …).
++    """
++    for message in messages:
++        if not isinstance(message, dict):
++            continue
++        content = message.get("content")
++        if not isinstance(content, list):
++            continue
++        new_content: List[Any] = []
++        changed = False
++        for item in content:
++            if isinstance(item, dict) and item.get("type") == "image_url":
++                ref = image_ref_as_given(item.get("image_url"))
++                new_content.append(
++                    {
++                        "type": "text",
++                        "text": f"{NON_VISION_IMAGE_PLACEHOLDER_PREFIX}{ref}",
++                    }
++                )
++                changed = True
++            else:
++                new_content.append(item)
++        if changed:
++            message["content"] = new_content  # type: ignore[typeddict-item]
++    return messages
++
++
++def replace_image_blocks_in_responses_input(input_data: Any) -> Any:
++    """Replace Responses API input_image / image_url parts with input_text.
++
++    Walks list-form input items; leaves string input unchanged.
++    Image reference is written as the client provided it.
++    """
++    if not isinstance(input_data, list):
++        return input_data
++
++    for item in input_data:
++        if not isinstance(item, dict):
++            continue
++        content = item.get("content")
++        if not isinstance(content, list):
++            # top-level input_image item (rare)
++            if item.get("type") in ("input_image", "image_url"):
++                ref = image_ref_as_given(
++                    item.get("image_url") if item.get("image_url") is not None else item.get("url")
++                )
++                item["type"] = "input_text"
++                item["text"] = f"{NON_VISION_IMAGE_PLACEHOLDER_PREFIX}{ref}"
++                item.pop("image_url", None)
++                item.pop("url", None)
++                item.pop("detail", None)
++            continue
++        new_content: List[Any] = []
++        changed = False
++        for part in content:
++            if not isinstance(part, dict):
++                new_content.append(part)
++                continue
++            part_type = part.get("type")
++            if part_type in ("input_image", "image_url"):
++                ref = image_ref_as_given(
++                    part.get("image_url") if part.get("image_url") is not None else part.get("url")
++                )
++                new_content.append(
++                    {
++                        "type": "input_text",
++                        "text": f"{NON_VISION_IMAGE_PLACEHOLDER_PREFIX}{ref}",
++                    }
++                )
++                changed = True
++            else:
++                new_content.append(part)
++        if changed:
++            item["content"] = new_content
++    return input_data
++
++
+ def convert_openai_message_to_only_content_messages(
+     messages: List[AllMessageValues],
+ ) -> List[Dict[str, str]]:
+diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
+index f2498c0a7e..71d498d4a2 100644
+--- a/litellm/llms/openai/chat/gpt_transformation.py
++++ b/litellm/llms/openai/chat/gpt_transformation.py
+@@ -436,6 +436,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         Returns:
+             dict: The transformed request. Sent as the body of the API call.
+         """
++        from litellm.litellm_core_utils.prompt_templates.common_utils import (
++            model_explicitly_disables_vision,
++            replace_image_url_blocks_in_messages,
++        )
++
+         messages = self._transform_messages(messages=messages, model=model)
+         if not self._should_preserve_cache_control_for_endpoint(
+             litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+@@ -446,6 +451,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+             if tools is not None and len(tools) > 0:
+                 optional_params["tools"] = tools
+ 
++        if model_explicitly_disables_vision(model=model, litellm_params=litellm_params):
++            messages = replace_image_url_blocks_in_messages(messages)
++
+         optional_params.pop("max_retries", None)
+ 
+         return {
+@@ -462,6 +470,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         litellm_params: dict,
+         headers: dict,
+     ) -> dict:
++        from litellm.litellm_core_utils.prompt_templates.common_utils import (
++            model_explicitly_disables_vision,
++            replace_image_url_blocks_in_messages,
++        )
++
+         transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
+         if not self._should_preserve_cache_control_for_endpoint(
+             litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+@@ -477,6 +490,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+             if tools is not None and len(tools) > 0:
+                 optional_params["tools"] = tools
+         if self.__class__._is_base_class:
++            if model_explicitly_disables_vision(model=model, litellm_params=litellm_params):
++                transformed_messages = replace_image_url_blocks_in_messages(transformed_messages)
+             return {
+                 "model": model,
+                 "messages": transformed_messages,
+diff --git a/litellm/llms/openai/responses/transformation.py b/litellm/llms/openai/responses/transformation.py
+index dc4e98e621..006c10994a 100644
+--- a/litellm/llms/openai/responses/transformation.py
++++ b/litellm/llms/openai/responses/transformation.py
+@@ -150,11 +150,22 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
+         `remove_cache_control_flag_from_messages_and_tools`; mirror that here.
+         """
+ 
++        from litellm.litellm_core_utils.prompt_templates.common_utils import (
++            model_explicitly_disables_vision,
++            replace_image_blocks_in_responses_input,
++        )
++
+         input = self._validate_input_param(input)
+         tools = response_api_optional_request_params.get("tools")
+         input, tools = self.remove_cache_control_flag_from_input_and_tools(model=model, input=input, tools=tools)
+         if tools is not None:
+             response_api_optional_request_params["tools"] = tools
++
++        # Text-only models: replace image parts so upstream does not reject
++        # unknown variant image_url / input_image. Reference is client-as-is.
++        if model_explicitly_disables_vision(model=model, litellm_params=litellm_params):
++            input = replace_image_blocks_in_responses_input(input)
++
+         final_request_params = dict(
+             ResponsesAPIRequestParams(model=model, input=input, **response_api_optional_request_params)
+         )
