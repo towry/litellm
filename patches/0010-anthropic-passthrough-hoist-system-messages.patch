@@ -1,13 +1,14 @@
 diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-index 05679bf39a..17034101e7 100644
+index 476c333dc6..b32f432681 100644
 --- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 +++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-@@ -405,6 +405,33 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+@@ -476,6 +476,34 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
          if thinking_enabled or effort_enabled:
              optional_params.pop("temperature", None)
  
++
 +    @staticmethod
-+    def _hoist_system_messages_to_top_level(messages: List[Dict], optional_params: Dict) -> List[Dict]:
++    def _hoist_system_messages_to_top_level(messages: list[dict], optional_params: dict) -> list[dict]:
 +        """Move system-role messages into the Anthropic Messages top-level system parameter."""
 +        system_messages = [
 +            message for message in messages if isinstance(message, dict) and message.get("role") == "system"
@@ -15,7 +16,7 @@ index 05679bf39a..17034101e7 100644
 +        if not system_messages:
 +            return messages
 +
-+        def _as_blocks(content: object) -> List[Dict]:
++        def _as_blocks(content: object) -> list[dict]:
 +            if isinstance(content, str):
 +                return [{"type": "text", "text": content}] if content else []
 +            if isinstance(content, list):
@@ -36,7 +37,7 @@ index 05679bf39a..17034101e7 100644
      def transform_anthropic_messages_request(
          self,
          model: str,
-@@ -451,6 +478,11 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+@@ -522,6 +550,11 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
              custom_llm_provider=self._resolved_provider,
          )
  
@@ -45,6 +46,6 @@ index 05679bf39a..17034101e7 100644
 +            optional_params=anthropic_messages_optional_request_params,
 +        )
 +
-         system_param = anthropic_messages_optional_request_params.get("system")
+         system_param: Final = anthropic_messages_optional_request_params.get("system")
          if self.should_strip_billing_metadata() and system_param is not None:
-             filtered_system = self._filter_billing_headers_from_system(system_param)
+             filtered_system: Final = self._filter_billing_headers_from_system(system_param)

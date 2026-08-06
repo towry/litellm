@@ -1,36 +1,36 @@
 diff --git a/litellm/llms/base_llm/responses/transformation.py b/litellm/llms/base_llm/responses/transformation.py
-index 4a85af98f1..0b659faceb 100644
+index dd4cebac52..ee6fb1092a 100644
 --- a/litellm/llms/base_llm/responses/transformation.py
 +++ b/litellm/llms/base_llm/responses/transformation.py
 @@ -66,6 +66,9 @@ class BaseResponsesAPIConfig(ABC):
-     def create_streaming_output_recovery(self) -> Optional[ResponsesSSEOutputAccumulator]:
+     def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator | None:
          return None
  
-+    def should_skip_streaming_chunk(self, parsed_chunk: Dict[str, Any]) -> bool:
++    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, Any]) -> bool:
 +        return False
 +
      def sign_request(
          self,
          headers: dict,
 diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
-index 7d7592c903..0c4cefdd81 100644
+index c73e6c3a74..b8ce73b2f9 100644
 --- a/litellm/llms/chatgpt/responses/transformation.py
 +++ b/litellm/llms/chatgpt/responses/transformation.py
 @@ -41,6 +41,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
      def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator:
          return ResponsesSSEOutputAccumulator()
  
-+    def should_skip_streaming_chunk(self, parsed_chunk: Dict[str, Any]) -> bool:
++    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, Any]) -> bool:
 +        return parsed_chunk.get("type") == "keepalive"
 +
      def validate_environment(
          self,
          headers: dict,
 diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streaming_iterator.py
-index 0ff94ab19d..0305c6d4b6 100644
+index 275aaca4d6..31bce13506 100644
 --- a/litellm/responses/streaming_iterator.py
 +++ b/litellm/responses/streaming_iterator.py
-@@ -185,6 +185,8 @@ class BaseResponsesAPIStreamingIterator:
+@@ -207,6 +207,8 @@ class BaseResponsesAPIStreamingIterator:
              if isinstance(parsed_chunk, dict):
                  if self.responses_api_provider_config is None:
                      raise ValueError("responses_api_provider_config is required to process live streaming chunks")
@@ -38,4 +38,4 @@ index 0ff94ab19d..0305c6d4b6 100644
 +                    return None
                  if self._streaming_output_recovery is not None:
                      parsed_chunk = self._streaming_output_recovery.process_chunk(parsed_chunk)
-                 openai_responses_api_chunk = self.responses_api_provider_config.transform_streaming_response(
+                 openai_responses_api_chunk: Final = self.responses_api_provider_config.transform_streaming_response(

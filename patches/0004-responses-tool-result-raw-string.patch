@@ -1,15 +1,15 @@
 diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-index 53ffd3647b..5cd5be7f65 100644
+index 4c6112952c..40fd2b4003 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -176,24 +176,34 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -267,24 +267,34 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                          }
                      )
              elif role == "tool":
 -                # Convert tool message to function call output format
 -                # The Responses API expects 'output' to be a list with input_text/input_image types
 -                # Using list format for consistency across text and multimodal content
--                tool_output: List[Dict[str, Any]]
+-                tool_output: list[dict[str, Any]]
 +                # OpenAI-like bridges are more reliable when plain text tool
 +                # outputs stay as raw strings instead of input_text blocks.
 +                tool_output: Any
@@ -45,6 +45,6 @@ index 53ffd3647b..5cd5be7f65 100644
 -                    # Fallback: convert unexpected types to input_text
 -                    tool_output = [{"type": "input_text", "text": str(content)}]
 +                    tool_output = str(content)
-                 input_items.append(
-                     {
-                         "type": "function_call_output",
+                 if tool_call_id in custom_tool_call_ids:
+                     input_items.append(
+                         ResponseCustomToolCallOutputParam(

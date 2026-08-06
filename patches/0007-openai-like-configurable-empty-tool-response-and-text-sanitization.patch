@@ -1,8 +1,8 @@
 diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-index 9cb6929..34a8157 100644
+index 40fd2b4003..b126b027e0 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -122,6 +122,42 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -164,6 +164,42 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
      def __init__(self):
          pass
  
@@ -43,9 +43,9 @@ index 9cb6929..34a8157 100644
 +        return provider_post_processor
 +
      def _normalize_tool_choice_for_responses_api(self, tool_choice: Any) -> Any:
-         """Chat tool_choice uses function.name; Responses API expects top-level name."""
-         if not isinstance(tool_choice, dict) or tool_choice.get("type") != "function":
-@@ -733,7 +769,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+         """Chat tool_choice nests the name under function/custom; Responses API expects top-level name."""
+         if not isinstance(tool_choice, dict):
+@@ -790,7 +826,20 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                  else:
                      model_response._hidden_params[key] = value
  
@@ -68,18 +68,18 @@ index 9cb6929..34a8157 100644
      def get_model_response_iterator(
          self,
 diff --git a/litellm/litellm_core_utils/get_litellm_params.py b/litellm/litellm_core_utils/get_litellm_params.py
-index fbed959..4fa3805 100644
+index d6433ad333..ddf38d12b7 100644
 --- a/litellm/litellm_core_utils/get_litellm_params.py
 +++ b/litellm/litellm_core_utils/get_litellm_params.py
-@@ -102,6 +102,7 @@ def get_litellm_params(
-     api_version: Optional[str] = None,
-     max_retries: Optional[int] = None,
-     litellm_request_debug: Optional[bool] = None,
-+    openai_like_behavior: Optional[dict] = None,
+@@ -113,6 +113,7 @@ def get_litellm_params(
+     api_version: str | None = None,
+     max_retries: int | None = None,
+     litellm_request_debug: bool | None = None,
++    openai_like_behavior: dict | None = None,
      **kwargs,
  ) -> dict:
      # Derive litellm_session_id / litellm_trace_id from metadata when not provided (call chaining)
-@@ -160,6 +161,7 @@ def get_litellm_params(
+@@ -172,6 +173,7 @@ def get_litellm_params(
          "max_retries": max_retries,
          "use_litellm_proxy": use_litellm_proxy,
          "litellm_request_debug": litellm_request_debug,
@@ -88,27 +88,27 @@ index fbed959..4fa3805 100644
  
      # Sparse extraction: only add kwargs keys that are actually present
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 4d3c3ad..b329043 100644
+index 76e84adaed..a463040547 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -2,6 +2,7 @@
- Support for gpt model family
+@@ -3,6 +3,7 @@ Support for gpt model family
  """
  
  import json
 +import re
- from typing import (
-     TYPE_CHECKING,
-@@ -111,6 +112,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
-     temperature: Optional[int] = None
-     top_p: Optional[int] = None
-     response_format: Optional[dict] = None
+ import os
+ from collections.abc import AsyncIterator, Coroutine, Iterator
+ from typing import TYPE_CHECKING, Any, Final, Literal, Optional, cast, overload
+@@ -101,6 +102,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+     temperature: int | None = None
+     top_p: int | None = None
+     response_format: dict | None = None
 +    _LEADING_CTRL_TOKEN_PATTERN = re.compile(r"^(?:<ctrl\d+>\s*)+")
 +    _CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
  
      def __init__(
          self,
-@@ -137,6 +140,186 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -127,6 +130,186 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
      def get_config(cls):
          return super().get_config()
  
@@ -293,9 +293,9 @@ index 4d3c3ad..b329043 100644
 +        return model_response
 +
      def get_supported_openai_params(self, model: str) -> list:
-         base_params = [
+         base_params: Final = [
              "frequency_penalty",
-@@ -640,7 +823,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -639,7 +822,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              _response_headers=raw_response_headers,
          )
  
@@ -308,10 +308,10 @@ index 4d3c3ad..b329043 100644
 +            headers=raw_response.headers,
 +        )
  
-     def get_error_class(
-         self, error_message: str, status_code: int, headers: Union[dict, httpx.Headers]
+     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:
+         return OpenAIError(
 diff --git a/litellm/llms/openai_like/README.md b/litellm/llms/openai_like/README.md
-index e9aaafe..9ad9006 100644
+index e9aaafe48a..9ad9006e3b 100644
 --- a/litellm/llms/openai_like/README.md
 +++ b/litellm/llms/openai_like/README.md
 @@ -59,7 +59,13 @@ That's it! The provider will be automatically loaded and available.
@@ -357,7 +357,7 @@ index e9aaafe..9ad9006 100644
  
  1. `json_loader.py` checks `supported_endpoints` for `/v1/responses`
 diff --git a/litellm/llms/openai_like/chat/transformation.py b/litellm/llms/openai_like/chat/transformation.py
-index a2c847a..4a2ed42 100644
+index c3a7c29413..6db902b98a 100644
 --- a/litellm/llms/openai_like/chat/transformation.py
 +++ b/litellm/llms/openai_like/chat/transformation.py
 @@ -75,8 +75,8 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
@@ -371,10 +371,10 @@ index a2c847a..4a2ed42 100644
          response: httpx.Response,
          model_response: ModelResponse,
 @@ -91,6 +91,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
-         json_mode: Optional[bool],
-         custom_llm_provider: Optional[str],
-         base_model: Optional[str],
-+        litellm_params: Optional[dict],
+         json_mode: bool | None,
+         custom_llm_provider: str | None,
+         base_model: str | None,
++        litellm_params: dict | None,
      ) -> ModelResponse:
          response_json = response.json()
          logging_obj.post_call(
@@ -408,8 +408,8 @@ index a2c847a..4a2ed42 100644
      def transform_response(
          self,
 @@ -133,7 +140,7 @@ class OpenAILikeChatConfig(OpenAIGPTConfig):
-         api_key: Optional[str] = None,
-         json_mode: Optional[bool] = None,
+         api_key: str | None = None,
+         json_mode: bool | None = None,
      ) -> ModelResponse:
 -        return OpenAILikeChatConfig._transform_response(
 +        return self._transform_response(
@@ -425,10 +425,10 @@ index a2c847a..4a2ed42 100644
  
      def map_openai_params(
 diff --git a/litellm/llms/openai_like/dynamic_config.py b/litellm/llms/openai_like/dynamic_config.py
-index 3c763ed..7233198 100644
+index b7e5c4ce73..98849bfb40 100644
 --- a/litellm/llms/openai_like/dynamic_config.py
 +++ b/litellm/llms/openai_like/dynamic_config.py
-@@ -67,6 +67,12 @@ def create_config_class(provider: SimpleProviderConfig):
+@@ -68,6 +68,12 @@ def create_config_class(provider: SimpleProviderConfig):
  
              return resolved_base, resolved_key
  
@@ -440,8 +440,8 @@ index 3c763ed..7233198 100644
 +
          def get_complete_url(
              self,
-             api_base: Optional[str],
-@@ -187,6 +193,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
+             api_base: str | None,
+@@ -193,6 +199,12 @@ def create_responses_config_class(provider: SimpleProviderConfig):
          def custom_llm_provider(self):  # type: ignore[override]
              return provider.slug
  
@@ -455,10 +455,10 @@ index 3c763ed..7233198 100644
              self,
              headers: dict,
 diff --git a/litellm/main.py b/litellm/main.py
-index 7f6550c..3d8b17b 100644
+index 9d128a3654..c28389677e 100644
 --- a/litellm/main.py
 +++ b/litellm/main.py
-@@ -5231,6 +5231,7 @@ def completion(  # type: ignore
+@@ -5377,6 +5377,7 @@ def completion(  # type: ignore
              max_retries=max_retries,
              timeout=timeout,
              litellm_request_debug=kwargs.get("litellm_request_debug", False),
@@ -467,10 +467,10 @@ index 7f6550c..3d8b17b 100644
              rpm=kwargs.get("rpm"),
              use_xai_oauth=kwargs.get("use_xai_oauth", False),
 diff --git a/litellm/types/router.py b/litellm/types/router.py
-index 0c3485d..d18bd26 100644
+index 21bed84a3a..7a52e8bbe2 100644
 --- a/litellm/types/router.py
 +++ b/litellm/types/router.py
-@@ -245,6 +245,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
+@@ -248,6 +248,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
      )
      model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
      merge_reasoning_content_in_choices: Optional[bool] = False
@@ -479,10 +479,10 @@ index 0c3485d..d18bd26 100644
      mock_response: Optional[Union[str, ModelResponse, Exception, Any]] = None
  
 diff --git a/litellm/utils.py b/litellm/utils.py
-index 9570c2c..8c089e2 100644
+index c6d1521c2f..a4491436b6 100644
 --- a/litellm/utils.py
 +++ b/litellm/utils.py
-@@ -3546,6 +3546,7 @@ class PreProcessNonDefaultParams:
+@@ -3582,6 +3582,7 @@ class PreProcessNonDefaultParams:
                  and k != "drop_params"
                  and k != "allowed_openai_params"
                  and k != "additional_drop_params"
@@ -490,10 +490,10 @@ index 9570c2c..8c089e2 100644
                  and k not in additional_endpoint_specific_params
                  and k in default_param_values
                  and v != default_param_values[k]
-@@ -4338,6 +4339,8 @@ def add_provider_specific_params_to_optional_params(
+@@ -4381,6 +4382,8 @@ def add_provider_specific_params_to_optional_params(
          if _should_drop_param(k="extra_body", additional_drop_params=additional_drop_params) is False:
-             extra_body = dict(passed_params.pop("extra_body", None) or {})
-             for k in passed_params.keys():
+             extra_body: Final = dict(passed_params.pop("extra_body", None) or {})
+             for k in passed_params:
 +                if k == "openai_like_behavior":
 +                    continue
                  if k not in openai_params and passed_params[k] is not None:

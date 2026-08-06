@@ -1,8 +1,8 @@
 diff --git a/litellm/litellm_core_utils/prompt_templates/common_utils.py b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-index c43089950e..31ed788d56 100644
+index f1500dd7d1..91c2ff6caa 100644
 --- a/litellm/litellm_core_utils/prompt_templates/common_utils.py
 +++ b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-@@ -213,6 +213,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
+@@ -211,6 +211,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
      return False
  
  
@@ -32,7 +32,7 @@ index c43089950e..31ed788d56 100644
 +    return str(image_url_field)
 +
 +
-+def _explicit_supports_vision_flag(model_info: Any) -> Optional[bool]:
++def _explicit_supports_vision_flag(model_info: Any) -> bool | None:
 +    """Return supports_vision only when the key is present; else None."""
 +    if model_info is None:
 +        return None
@@ -59,10 +59,10 @@ index c43089950e..31ed788d56 100644
 +    return None
 +
 +
-+def _iter_model_info_candidates(litellm_params: Any) -> List[Any]:
++def _iter_model_info_candidates(litellm_params: Any) -> list[Any]:
 +    if litellm_params is None:
 +        return []
-+    candidates: List[Any] = []
++    candidates: list[Any] = []
 +    if isinstance(litellm_params, dict):
 +        if litellm_params.get("model_info") is not None:
 +            candidates.append(litellm_params.get("model_info"))
@@ -82,7 +82,7 @@ index c43089950e..31ed788d56 100644
 +def model_explicitly_disables_vision(
 +    model: str,
 +    litellm_params: Any = None,
-+    custom_llm_provider: Optional[str] = None,
++    custom_llm_provider: str | None = None,
 +) -> bool:
 +    """True only when supports_vision is explicitly set to False.
 +
@@ -119,8 +119,8 @@ index c43089950e..31ed788d56 100644
 +
 +
 +def replace_image_url_blocks_in_messages(
-+    messages: List[AllMessageValues],
-+) -> List[AllMessageValues]:
++    messages: list[AllMessageValues],
++) -> list[AllMessageValues]:
 +    """Replace chat content blocks type=image_url with a text placeholder.
 +
 +    The image reference is the client-provided url/string as-is.
@@ -132,7 +132,7 @@ index c43089950e..31ed788d56 100644
 +        content = message.get("content")
 +        if not isinstance(content, list):
 +            continue
-+        new_content: List[Any] = []
++        new_content: list[Any] = []
 +        changed = False
 +        for item in content:
 +            if isinstance(item, dict) and item.get("type") == "image_url":
@@ -176,7 +176,7 @@ index c43089950e..31ed788d56 100644
 +                item.pop("url", None)
 +                item.pop("detail", None)
 +            continue
-+        new_content: List[Any] = []
++        new_content: list[Any] = []
 +        changed = False
 +        for part in content:
 +            if not isinstance(part, dict):
@@ -202,13 +202,13 @@ index c43089950e..31ed788d56 100644
 +
 +
  def convert_openai_message_to_only_content_messages(
-     messages: List[AllMessageValues],
- ) -> List[Dict[str, str]]:
+     messages: list[AllMessageValues],
+ ) -> list[dict[str, str]]:
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index f2498c0a7e..71d498d4a2 100644
+index a463040547..842e6cf80a 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -436,6 +436,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -610,6 +610,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          Returns:
              dict: The transformed request. Sent as the body of the API call.
          """
@@ -218,9 +218,9 @@ index f2498c0a7e..71d498d4a2 100644
 +        )
 +
          messages = self._transform_messages(messages=messages, model=model)
-         if not self._should_preserve_cache_control_for_endpoint(
+         preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -446,6 +451,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -623,6 +628,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
  
@@ -230,7 +230,7 @@ index f2498c0a7e..71d498d4a2 100644
          optional_params.pop("max_retries", None)
  
          return {
-@@ -462,6 +470,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -639,6 +647,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          litellm_params: dict,
          headers: dict,
      ) -> dict:
@@ -240,9 +240,9 @@ index f2498c0a7e..71d498d4a2 100644
 +        )
 +
          transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
-         if not self._should_preserve_cache_control_for_endpoint(
+         preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -477,6 +490,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -657,6 +670,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
          if self.__class__._is_base_class:
@@ -252,7 +252,7 @@ index f2498c0a7e..71d498d4a2 100644
                  "model": model,
                  "messages": transformed_messages,
 diff --git a/litellm/llms/openai/responses/transformation.py b/litellm/llms/openai/responses/transformation.py
-index dc4e98e621..006c10994a 100644
+index 39156faefd..c13d2bfc0b 100644
 --- a/litellm/llms/openai/responses/transformation.py
 +++ b/litellm/llms/openai/responses/transformation.py
 @@ -150,11 +150,22 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
@@ -275,6 +275,6 @@ index dc4e98e621..006c10994a 100644
 +        if model_explicitly_disables_vision(model=model, litellm_params=litellm_params):
 +            input = replace_image_blocks_in_responses_input(input)
 +
-         final_request_params = dict(
+         final_request_params: Final = dict(
              ResponsesAPIRequestParams(model=model, input=input, **response_api_optional_request_params)
          )

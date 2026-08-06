@@ -1,8 +1,8 @@
 diff --git a/litellm/main.py b/litellm/main.py
-index 09c70998cf..6d9268130c 100644
+index 8814a9a70d..9d128a3654 100644
 --- a/litellm/main.py
 +++ b/litellm/main.py
-@@ -4880,6 +4880,7 @@ def embedding(  # noqa: PLR0915
+@@ -6055,6 +6055,7 @@ def embedding(
          user=user,
          dimensions=dimensions,
          encoding_format=encoding_format,
@@ -11,7 +11,7 @@ index 09c70998cf..6d9268130c 100644
          allowed_openai_params=allowed_openai_params,
          **non_default_params,
 diff --git a/litellm/utils.py b/litellm/utils.py
-index 5a9dccc089..7de756431c 100644
+index d24a4dc928..c6d1521c2f 100644
 --- a/litellm/utils.py
 +++ b/litellm/utils.py
 @@ -35,6 +35,7 @@ from importlib import resources
@@ -22,15 +22,15 @@ index 5a9dccc089..7de756431c 100644
  
  import dotenv
  import httpx
-@@ -3277,6 +3278,7 @@ def get_optional_params_embeddings(  # noqa: PLR0915
-     user: Optional[str] = None,
-     encoding_format: Optional[str] = None,
-     dimensions: Optional[int] = None,
-+    api_base: Optional[str] = None,
+@@ -3069,6 +3070,7 @@ def get_optional_params_embeddings(
+     user: str | None = None,
+     encoding_format: str | None = None,
+     dimensions: int | None = None,
++    api_base: str | None = None,
      custom_llm_provider="",
-     drop_params: Optional[bool] = None,
-     additional_drop_params: Optional[List[str]] = None,
-@@ -3367,20 +3369,27 @@ def get_optional_params_embeddings(  # noqa: PLR0915
+     drop_params: bool | None = None,
+     additional_drop_params: list[str] | None = None,
+@@ -3144,12 +3146,19 @@ def get_optional_params_embeddings(
                      optional_params[param] = passed_params[param]
      ## raise exception if non-default value passed for non-openai/azure embedding calls
      elif custom_llm_provider == "openai":
@@ -50,13 +50,3 @@ index 5a9dccc089..7de756431c 100644
          ):
              # Honor drop_params (per-call) and litellm.drop_params (global) the same
              # way `_check_valid_arg` does above. The raised error message itself
-             # tells users to set `drop_params=True`, so respect it here.
-             if litellm.drop_params is True or drop_params is True:
-                 non_default_params.pop("dimensions", None)
-             else:
-                 raise UnsupportedParamsError(
-                     status_code=500,
-                     message="Setting dimensions is not supported for OpenAI `text-embedding-3` and later models. To drop it from the call, set `litellm.drop_params = True`.",
-                 )
-         optional_params = non_default_params
-     elif custom_llm_provider == "triton":
