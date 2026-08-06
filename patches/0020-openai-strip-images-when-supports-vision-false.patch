@@ -2,7 +2,7 @@ diff --git a/litellm/litellm_core_utils/prompt_templates/common_utils.py b/litel
 index c43089950e..31ed788d56 100644
 --- a/litellm/litellm_core_utils/prompt_templates/common_utils.py
 +++ b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-@@ -213,6 +213,199 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
+@@ -213,6 +213,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
      return False
  
  
@@ -10,7 +10,9 @@ index c43089950e..31ed788d56 100644
 +# this text so text-only upstreams (e.g. Rust OpenAI-compat APIs) do not 400 on
 +# unknown variant `image_url`. The image reference is written as the client sent
 +# it — no path normalization.
-+NON_VISION_IMAGE_PLACEHOLDER_PREFIX = "请使用mcp或者支持图片的子代理："
++NON_VISION_IMAGE_PLACEHOLDER_PREFIX = (
++    "Use the vision MCP tool or a vision-capable subagent: "
++)
 +
 +
 +def image_ref_as_given(image_url_field: Any) -> str:
