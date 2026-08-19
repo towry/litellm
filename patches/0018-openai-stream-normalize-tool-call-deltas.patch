@@ -37,7 +37,7 @@ index c09c767483..ffc2f63a54 100644
          """Raise litellm.Timeout if the stream has exceeded LITELLM_MAX_STREAMING_DURATION_SECONDS."""
          from litellm.constants import LITELLM_MAX_STREAMING_DURATION_SECONDS
 @@ -1463,6 +1490,8 @@ class CustomStreamWrapper:
-                 model_response=model_response,  # type: ignore
+                 model_response=model_response,
                  response_obj=response_obj,
              )
 +            if isinstance(result, ModelResponseStream):

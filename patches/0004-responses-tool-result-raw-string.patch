@@ -9,7 +9,7 @@ index 4c6112952c..40fd2b4003 100644
 -                # Convert tool message to function call output format
 -                # The Responses API expects 'output' to be a list with input_text/input_image types
 -                # Using list format for consistency across text and multimodal content
--                tool_output: list[dict[str, Any]]
+-                tool_output: list[dict[str, object]]
 +                # OpenAI-like bridges are more reliable when plain text tool
 +                # outputs stay as raw strings instead of input_text blocks.
 +                tool_output: Any

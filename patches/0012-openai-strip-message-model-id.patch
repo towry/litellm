@@ -5,7 +5,7 @@ index 9c182e0829..0608b20ae5 100644
 @@ -340,6 +340,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
  
          async def _async_transform():
-             for message in messages:
+             for message in hoisted_messages:
 +                cast(dict, message).pop("model_id", None)
                  message_content = message.get("content")
                  message_role = message.get("role")
@@ -13,7 +13,7 @@ index 9c182e0829..0608b20ae5 100644
 @@ -355,6 +356,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              return _async_transform()
          else:
-             for message in messages:
+             for message in hoisted_messages:
 +                cast(dict, message).pop("model_id", None)
                  message_content = message.get("content")
                  message_role = message.get("role")

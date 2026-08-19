@@ -8,9 +8,9 @@ cd "$repo_root"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-upstream_dir="$(cd "$repo_root/.." && pwd)/litellm-upstream"
-if [ ! -d "$upstream_dir/.git" ]; then
-  echo "[orb-resume] NOTE: missing source tree $upstream_dir (run .agents/setup)"
+source_dir="$(cd "$repo_root/.." && pwd)/litellm-main"
+if [ ! -d "$source_dir/.git" ]; then
+  echo "[orb-resume] NOTE: missing source tree $source_dir (run .agents/setup)"
 fi
 
 mkdir -p .amp

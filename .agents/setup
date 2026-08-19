@@ -60,24 +60,25 @@ fi
 finish_step "uv"
 
 echo "[orb-setup] Ensuring canonical LiteLLM source tree"
-# Read-only sibling checkout for analysis / patch generation.
-# Never commit or push in this tree. Prefer BerriAI/litellm main.
-upstream_dir="$(cd "$repo_root/.." && pwd)/litellm-upstream"
-if [ -d "$upstream_dir/.git" ]; then
-  echo "[orb-setup] Reusing existing $upstream_dir"
-elif [ ! -e "$upstream_dir" ]; then
-  gh repo clone BerriAI/litellm "$upstream_dir" -- --depth 1 --branch main --single-branch
+# Read-only sibling worktree of this fork's origin/main.
+# Never clone BerriAI/litellm. Never commit or push in this tree.
+source_dir="$(cd "$repo_root/.." && pwd)/litellm-main"
+if [ -d "$source_dir/.git" ]; then
+  echo "[orb-setup] Reusing existing $source_dir"
+elif [ ! -e "$source_dir" ]; then
+  git -C "$repo_root" fetch origin main --depth 1
+  git -C "$repo_root" worktree add --detach "$source_dir" origin/main
 else
-  echo "[orb-setup] $upstream_dir exists but is not a git checkout; leaving it"
+  echo "[orb-setup] $source_dir exists but is not a git checkout; leaving it"
 fi
 finish_step "LiteLLM source tree"
 
 echo "[orb-setup] Preparing Python toolchain in the source tree"
 # Patch work only needs CPython + uv. Skip LiteLLM's full uv.lock sync
 # (proxy extras / prisma) so setup stays inside the orb time budget.
-if [ -d "$upstream_dir" ] && [ ! -d "$upstream_dir/.venv" ]; then
+if [ -d "$source_dir" ] && [ ! -d "$source_dir/.venv" ]; then
   (
-    cd "$upstream_dir"
+    cd "$source_dir"
     "$HOME/.local/bin/uv" venv --python 3.11 .venv
   )
 fi
@@ -92,10 +93,10 @@ if ! grep -Fqx "$orb_guidance_marker" "$amp_config_dir/AGENTS.md" 2>/dev/null; t
 # LiteLLM deploy orb guidance
 
 - Default checkout is the `deploy` patch-only branch. Do not edit LiteLLM source here.
-- Canonical read-only source tree: `../litellm-upstream` (BerriAI `main`).
-- Legacy fallback only if that tree is missing: `./litellm-main`.
+- Canonical read-only source tree: `../litellm-main` (this repo's `origin/main` worktree).
+- Never clone or use `BerriAI/litellm` / `../litellm-upstream` as the patch baseline.
 - Put deploy-ready patches in `./patches` and update `./patches/series`.
-- Do not commit or push in `../litellm-upstream`.
+- Do not commit or push in `../litellm-main`.
 - Do not write or run unit tests; syntax-check with `python3 -m py_compile`.
 - `uv` is installed to `~/.local/bin`. Source-tree `.venv` is empty of LiteLLM deps on purpose.
 - Use tmux session `dev` for interactive background work.

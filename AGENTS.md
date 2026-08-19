@@ -10,26 +10,31 @@
 
 Paths are relative to **this repository root** (the towry/litellm checkout).
 
-**Canonical layout** (Amp Orbs and new setups): sibling BerriAI clone at `../litellm-upstream`.  
-**Legacy compat only**: `./litellm-main` (gitignored) was an older local worktree workflow — still accept if present so old machines keep working; do not create it by default and do not treat it as the target layout.
+Patches target **this fork's `origin/main`** (`towry/litellm` `main`). That is the same baseline CI uses.
+
+CI (`.github/workflows/check-patches.yml`) checks out the patch branch, detaches to `origin/main`, restores `patches/` + `scripts/`, then runs `scripts/apply.sh` on that tree. Rebase and apply against that SHA only.
 
 | Role | Path | Notes |
 |------|------|--------|
-| **Canonical** | `../litellm-upstream` | BerriAI `main`; **read-only**. On orb this is the expected source tree. |
-| **Legacy compat** | `./litellm-main` | Old local fork `main` worktree; gitignored. Use only if it already exists and `../litellm-upstream` is missing. |
-| Optional | User-named path | Only if the prompt names another tree. |
+| **Canonical** | `../litellm-main` | Detached worktree of **this repo's** `origin/main`. Create with `git fetch origin main && git worktree add --detach ../litellm-main origin/main`. |
+| **Legacy compat** | `./litellm-main` | Gitignored in-repo worktree. Use only if it already exists and is this repo's `origin/main`. |
+| Forbidden | `../litellm-upstream` or any `BerriAI/litellm` clone | Not the patch baseline. Ignore it even if present. |
 
 Resolve:
 
-1. If `../litellm-upstream` exists → use it (preferred; orb / standard).
-2. Else if `./litellm-main` exists → use it (compat with prior local layout only).
-3. Else if the task needs a source tree → clone BerriAI to `../litellm-upstream` (or use a user-named path). Do **not** default to `git worktree add ./litellm-main`.
+1. `git fetch origin main` and record `git rev-parse origin/main`.
+2. If `../litellm-main` exists and is this repo's `origin/main` → use it.
+3. Else if `./litellm-main` exists and is this repo's `origin/main` → use it.
+4. Else create the sibling worktree: `git worktree add --detach ../litellm-main origin/main`.
+5. Say which path and which `origin/main` SHA you used.
 
-Rules:
+Hard rules:
 
-- Never commit/push in `../litellm-upstream` (or any BerriAI checkout). `origin` should contain `BerriAI/litellm`; prefer `main`.
+- **Never clone `BerriAI/litellm`.** These patches are not against latest upstream.
+- **Never use `../litellm-upstream`** as the source tree, even if `.agents/setup` or an old orb left it there.
+- Do not create `./litellm-main` unless a sibling worktree is impossible.
+- Never commit or push from the source worktree. It is read-only analysis / apply scratch.
 - Deploy patches land only under `./patches` on this repo (`deploy` branch).
-- Say which path you used when starting work.
 - Done when deploy patches are updated in `./patches`.
 
 -------
