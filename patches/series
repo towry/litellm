@@ -1,13 +1,10 @@
-0001-router-fallback-http-errors.patch
 0003-responses-skip-empty-assistant-stubs.patch
 0004-responses-tool-result-raw-string.patch
-0006-gemini-empty-tool-response-invalid-and-sanitize-visible-text.patch
 0009-openai-compatible-embedding-dimensions.patch
 0010-anthropic-passthrough-hoist-system-messages.patch
 0011-budget-limiter-skip-missing-provider.patch
 0012-openai-strip-message-model-id.patch
 0013-openai-compatible-strip-null-schema-enums.patch
-0007-openai-like-configurable-empty-tool-response-and-text-sanitization.patch
 0015-chatgpt-responses-hoist-system-messages.patch
 0016-responses-stream-recover-terminal-output.patch
 0017-chatgpt-responses-drop-keepalive.patch
