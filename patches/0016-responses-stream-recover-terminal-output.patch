@@ -107,15 +107,15 @@ diff --git a/litellm/responses/sse_output_recovery.py b/litellm/responses/sse_ou
 index 208dec10c6..b30cc8bb1a 100644
 --- a/litellm/responses/sse_output_recovery.py
 +++ b/litellm/responses/sse_output_recovery.py
-@@ -11,6 +11,7 @@ import json
- from typing import Any, Final
- 
+@@ -11,6 +11,7 @@ from typing import Final, SupportsInt, TypeAlias, cast
+ from typing import Final, SupportsInt, TypeAlias, cast  # noqa: TID251  # int() re-checks the cast below at runtime
+
  from litellm.constants import STREAM_SSE_DONE_STRING
 +from litellm.types.llms.openai import ResponsesAPIStreamEvents
  
  _MAX_CONTENT_INDEX: Final = 1024
  
-@@ -128,3 +129,43 @@ def record_output_text_chunk(
+@@ -123,3 +124,43 @@ def record_output_text_chunk(
          content_item["annotations"] = parsed_chunk["annotations"]
      else:
          content_item.setdefault("annotations", [])
@@ -123,10 +123,10 @@ index 208dec10c6..b30cc8bb1a 100644
 +
 +class ResponsesSSEOutputAccumulator:
 +    def __init__(self) -> None:
-+        self._output_items: dict[int, dict[str, Any]] = {}
-+        self._text_only_items: dict[int, dict[str, Any]] = {}
++        self._output_items: dict[int, dict[str, object]] = {}
++        self._text_only_items: dict[int, dict[str, object]] = {}
 +
-+    def process_chunk(self, parsed_chunk: dict[str, Any]) -> dict[str, Any]:
++    def process_chunk(self, parsed_chunk: dict[str, object]) -> dict[str, object]:
 +        event_type = parsed_chunk.get("type")
 +        if event_type == ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE:
 +            record_output_item_chunk(
@@ -163,7 +163,7 @@ diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streami
 index 6940079b5c..275aaca4d6 100644
 --- a/litellm/responses/streaming_iterator.py
 +++ b/litellm/responses/streaming_iterator.py
-@@ -141,6 +141,11 @@ class BaseResponsesAPIStreamingIterator:
+@@ -209,6 +209,11 @@ class BaseResponsesAPIStreamingIterator:
          self._completed_response_cache_hit: bool | None = None
          self._persist_completed_response_before_logging = True
          self._stream_created_time: float = time.time()
@@ -175,20 +175,38 @@ index 6940079b5c..275aaca4d6 100644
  
          # track request context for hooks
          self.litellm_metadata = litellm_metadata
-@@ -202,6 +207,8 @@ class BaseResponsesAPIStreamingIterator:
-             if isinstance(parsed_chunk, dict):
+@@ -266,19 +271,24 @@ class BaseResponsesAPIStreamingIterator:
+             parsed_chunk: Final = _load_json_value(chunk)
+
+             # Format as ResponsesAPIStreamingResponse
+             if _is_json_object(parsed_chunk):
                  if self.responses_api_provider_config is None:
                      raise ValueError("responses_api_provider_config is required to process live streaming chunks")
-+                if self._streaming_output_recovery is not None:
-+                    parsed_chunk = self._streaming_output_recovery.process_chunk(parsed_chunk)
++                recovered_chunk: Final = (
++                    self._streaming_output_recovery.process_chunk(parsed_chunk)
++                    if self._streaming_output_recovery is not None
++                    else parsed_chunk
++                )
                  openai_responses_api_chunk: Final = self.responses_api_provider_config.transform_streaming_response(
                      model=self.model,
-                     parsed_chunk=parsed_chunk,
+-                    parsed_chunk=parsed_chunk,
++                    parsed_chunk=recovered_chunk,
+                     logging_obj=self.logging_obj,
+                 )
+
+                 # Only when the SSE JSON carries a response body (delta events do not).
+                 # Using getattr(..., "response") alone is unsafe with Mocks: they synthesize a
+                 # truthy child Mock for any attribute, which breaks tests and is wrong on stream.
+-                if "response" in parsed_chunk:
++                if "response" in recovered_chunk:
+                     response_object: Final[ResponsesAPIResponse | None] = getattr(
+                         openai_responses_api_chunk, "response", None
+                     )
 diff --git a/litellm/router.py b/litellm/router.py
 index 584b59533b..11060f1c66 100644
 --- a/litellm/router.py
 +++ b/litellm/router.py
-@@ -2475,6 +2475,7 @@ class Router:
+@@ -2837,6 +2837,7 @@ class Router:
                  self._completed_response_cache_hit = None
                  self._persist_completed_response_before_logging = True
                  self._stream_created_time = time.time()

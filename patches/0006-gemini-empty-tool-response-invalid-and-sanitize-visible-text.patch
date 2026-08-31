@@ -147,9 +147,8 @@ index 356d948ca2..92a68700de 100644
                      chat_completion_message["reasoning_content"] = reasoning_content
  
                  if candidate_grounding_metadata:
-@@ -2463,6 +2565,13 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
-             if web_search_requests is not None:
-                 cast(PromptTokensDetailsWrapper, usage.prompt_tokens_details).web_search_requests = web_search_requests
+@@ -2460,5 +2562,12 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
+             VertexGeminiConfig._set_grounding_usage_counters(usage, grounding_metadata)
  
 +            VertexGeminiConfig._raise_on_invalid_empty_tool_response(
 +                model_response=model_response,

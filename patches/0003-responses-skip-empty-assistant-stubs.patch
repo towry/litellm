@@ -2,7 +2,7 @@ diff --git a/litellm/responses/litellm_completion_transformation/transformation.
 index 79e0554535..ad7ea6da35 100644
 --- a/litellm/responses/litellm_completion_transformation/transformation.py
 +++ b/litellm/responses/litellm_completion_transformation/transformation.py
-@@ -412,6 +412,24 @@ class LiteLLMCompletionResponsesConfig:
+@@ -506,6 +506,24 @@ class LiteLLMCompletionResponsesConfig:
          elif isinstance(input, list):
              existing_tool_call_ids: Final[set[str]] = set()
              for _input in input:
@@ -26,4 +26,4 @@ index 79e0554535..ad7ea6da35 100644
 +
                  chat_completion_messages = (
                      LiteLLMCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
-                         input_item=_input
+                         input_item=_input,

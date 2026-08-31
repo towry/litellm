@@ -6,7 +6,7 @@ index dd4cebac52..ee6fb1092a 100644
      def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator | None:
          return None
  
-+    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, Any]) -> bool:
++    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, object]) -> bool:
 +        return False
 +
      def sign_request(
@@ -20,7 +20,7 @@ index c73e6c3a74..b8ce73b2f9 100644
      def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator:
          return ResponsesSSEOutputAccumulator()
  
-+    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, Any]) -> bool:
++    def should_skip_streaming_chunk(self, parsed_chunk: dict[str, object]) -> bool:
 +        return parsed_chunk.get("type") == "keepalive"
 +
      def validate_environment(
@@ -30,12 +30,12 @@ diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streami
 index 275aaca4d6..31bce13506 100644
 --- a/litellm/responses/streaming_iterator.py
 +++ b/litellm/responses/streaming_iterator.py
-@@ -207,6 +207,8 @@ class BaseResponsesAPIStreamingIterator:
-             if isinstance(parsed_chunk, dict):
+@@ -274,6 +274,8 @@ class BaseResponsesAPIStreamingIterator:
+             if _is_json_object(parsed_chunk):
                  if self.responses_api_provider_config is None:
                      raise ValueError("responses_api_provider_config is required to process live streaming chunks")
 +                if self.responses_api_provider_config.should_skip_streaming_chunk(parsed_chunk):
 +                    return None
-                 if self._streaming_output_recovery is not None:
-                     parsed_chunk = self._streaming_output_recovery.process_chunk(parsed_chunk)
-                 openai_responses_api_chunk: Final = self.responses_api_provider_config.transform_streaming_response(
+                 recovered_chunk: Final = (
+                     self._streaming_output_recovery.process_chunk(parsed_chunk)
+                     if self._streaming_output_recovery is not None

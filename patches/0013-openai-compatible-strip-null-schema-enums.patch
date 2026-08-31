@@ -43,12 +43,13 @@ diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/opena
 index 0608b20ae5..76e84adaed 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -17,9 +17,10 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
+@@ -17,10 +17,11 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
      _handle_invalid_parallel_tool_calls,
      _should_convert_tool_call_to_json_mode,
  )
 +from litellm.litellm_core_utils.json_validation_rule import drop_none_schema_enum_values
  from litellm.litellm_core_utils.prompt_templates.common_utils import (
+     drop_tool_reference_parts_from_tool_messages,
      get_tool_call_names,
      hoist_images_from_tool_messages,
  )
@@ -93,7 +94,7 @@ index bfa03d1fb2..8fa945126c 100644
  from litellm.files.types import FileContentStreamingResult
  from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
 +from litellm.litellm_core_utils.json_validation_rule import drop_none_schema_enum_values
- from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
+ from litellm.litellm_core_utils.logging_utils import speech_request_body, track_llm_api_timing
  from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
  from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
 @@ -253,6 +254,11 @@ class OpenAIConfig(BaseConfig):

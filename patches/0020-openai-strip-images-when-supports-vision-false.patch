@@ -255,7 +255,7 @@ diff --git a/litellm/llms/openai/responses/transformation.py b/litellm/llms/open
 index 39156faefd..c13d2bfc0b 100644
 --- a/litellm/llms/openai/responses/transformation.py
 +++ b/litellm/llms/openai/responses/transformation.py
-@@ -150,11 +150,22 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
+@@ -170,15 +170,26 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
          `remove_cache_control_flag_from_messages_and_tools`; mirror that here.
          """
  
@@ -267,8 +267,11 @@ index 39156faefd..c13d2bfc0b 100644
          input = self._validate_input_param(input)
          tools = response_api_optional_request_params.get("tools")
          input, tools = self.remove_cache_control_flag_from_input_and_tools(model=model, input=input, tools=tools)
-         if tools is not None:
-             response_api_optional_request_params["tools"] = tools
+         sanitized_tools: Final = self._flatten_tool_schema_combinators_for_openai(
+             model=model, tools=tools, litellm_params=litellm_params
+         )
+         if sanitized_tools is not None:
+             response_api_optional_request_params["tools"] = sanitized_tools
 +
 +        # Text-only models: replace image parts so upstream does not reject
 +        # unknown variant image_url / input_image. Reference is client-as-is.
@@ -278,3 +281,5 @@ index 39156faefd..c13d2bfc0b 100644
          final_request_params: Final = dict(
              ResponsesAPIRequestParams(model=model, input=input, **response_api_optional_request_params)
          )
+
+         return final_request_params
