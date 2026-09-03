@@ -1,0 +1,22 @@
+diff --git a/litellm/litellm_core_utils/streaming_handler.py b/litellm/litellm_core_utils/streaming_handler.py
+index 480b1921c1..6b7c44fbc4 100644
+--- a/litellm/litellm_core_utils/streaming_handler.py
++++ b/litellm/litellm_core_utils/streaming_handler.py
+@@ -2019,6 +2019,8 @@ class CustomStreamWrapper:
+                         complete_streaming_response = None
+ 
+                 response = self.model_response_creator()
++                # OpenAI include_usage last chunk must have choices: [] (BerriAI/litellm#28735).
++                response.choices = []
+                 if complete_streaming_response is not None:
+                     self._propagate_usage_cost_to_hidden_params(complete_streaming_response)
+ 
+@@ -2269,6 +2271,8 @@ class CustomStreamWrapper:
+                     complete_streaming_response = None
+ 
+             response: Final = self.model_response_creator()
++            # OpenAI include_usage last chunk must have choices: [] (BerriAI/litellm#28735).
++            response.choices = []
+             if complete_streaming_response is not None:
+                 self._propagate_usage_cost_to_hidden_params(complete_streaming_response)
+ 
