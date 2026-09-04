@@ -11,3 +11,4 @@
 0018-openai-stream-normalize-tool-call-deltas.patch
 0020-openai-strip-images-when-supports-vision-false.patch
 0021-openai-stream-include-usage-empty-choices.patch
+0022-openai-metadata-drop-internal-api-base.patch

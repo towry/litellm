@@ -1,0 +1,16 @@
+diff --git a/litellm/utils.py b/litellm/utils.py
+index 2fdc4a4514..ceac792b87 100644
+--- a/litellm/utils.py
++++ b/litellm/utils.py
+@@ -9762,9 +9762,9 @@ def add_openai_metadata(
+     """
+     if metadata is None:
+         return None
+-    # Only include non-hidden parameters
++    skipped_keys: Final = frozenset(("hidden_params", "api_base"))
+     visible_metadata: dict[str, str] = {
+-        str(k): v for k, v in metadata.items() if k != "hidden_params" and isinstance(v, str)
++        str(k): v for k, v in metadata.items() if k not in skipped_keys and isinstance(v, str)
+     }
+ 
+     # max 16 keys allowed by openai - trim down to 16
