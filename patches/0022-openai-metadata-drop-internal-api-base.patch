@@ -1,12 +1,17 @@
 diff --git a/litellm/utils.py b/litellm/utils.py
-index 2fdc4a4514..ceac792b87 100644
+index 2fdc4a4514..904ffc1244 100644
 --- a/litellm/utils.py
 +++ b/litellm/utils.py
-@@ -9762,9 +9762,9 @@ def add_openai_metadata(
+@@ -9762,9 +9762,14 @@ def add_openai_metadata(
      """
      if metadata is None:
          return None
 -    # Only include non-hidden parameters
++    # DROP AFTER STABLE: api_base is a LiteLLM routing stamp forwarded when
++    # enable_preview_features=true. Umans flash 503s on metadata.api_base
++    # (2026-09). Preview is now off; delete this patch if that stays off and
++    # no openai-compat host 503s on leftover stamps. See
++    # docs/litellm-umans-flash-metadata-api-base-503-2026-09.md in dots.
 +    skipped_keys: Final = frozenset(("hidden_params", "api_base"))
      visible_metadata: dict[str, str] = {
 -        str(k): v for k, v in metadata.items() if k != "hidden_params" and isinstance(v, str)
