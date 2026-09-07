@@ -1,0 +1,20 @@
+diff --git a/litellm/proxy/litellm_pre_call_utils.py b/litellm/proxy/litellm_pre_call_utils.py
+index 20f8308528..9f4bab4734 100644
+--- a/litellm/proxy/litellm_pre_call_utils.py
++++ b/litellm/proxy/litellm_pre_call_utils.py
+@@ -1061,11 +1061,11 @@ class LiteLLMProxyRequestSetup:
+         """
+         forwarded_headers: Final = {}
+         for header, value in headers.items():
++            header_lower = header.lower()
+             if (
+-                header.lower().startswith("x-")
+-                and not header.lower().startswith("x-stainless")
+-                or header.lower().startswith("anthropic-beta")
+-            ):  # causes openai sdk to fail
++                header_lower.startswith("x-")
++                or header_lower in ("anthropic-beta", "user-agent")
++            ):
+                 forwarded_headers[header] = value
+ 
+         return forwarded_headers
