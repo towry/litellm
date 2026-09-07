@@ -11,6 +11,8 @@
 - `0021-openai-stream-include-usage-empty-choices.patch`: `include_usage` 合成尾帧 `choices: []`，对齐 OpenAI 规范（BerriAI/litellm#28735 / PR #28736 未合入）
 - `0022-openai-metadata-drop-internal-api-base.patch`: 丢掉转发到 OpenAI metadata 的内部 `api_base`。Umans flash 会因此 503。preview 已关；确认无回归后可删。dots: `docs/litellm-umans-flash-metadata-api-base-503-2026-09.md`
 
+- `0023-anthropic-messages-append-beta-query.patch`: Anthropic `/v1/messages` pass-through 补 `?beta=true`，对齐 Claude Code CLI
+
 ## Rules
 
 - 勿纳仅供本地 agent 使用之文档、提示或工作流说明

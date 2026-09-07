@@ -1,0 +1,13 @@
+diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
+index 3d62b8b478..2722aeae11 100644
+--- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
++++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
+@@ -298,6 +298,8 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+         api_base = AnthropicModelInfo.get_api_base(api_base) or "https://api.anthropic.com"
+         if not api_base.endswith("/v1/messages"):
+             api_base = f"{api_base}/v1/messages"
++        if "beta=" not in api_base:
++            api_base = f"{api_base}?beta=true"
+         return api_base
+ 
+     def validate_anthropic_messages_environment(

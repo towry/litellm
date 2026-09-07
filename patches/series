@@ -12,3 +12,4 @@
 0020-openai-strip-images-when-supports-vision-false.patch
 0021-openai-stream-include-usage-empty-choices.patch
 0022-openai-metadata-drop-internal-api-base.patch
+0023-anthropic-messages-append-beta-query.patch
