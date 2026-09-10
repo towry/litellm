@@ -1,8 +1,8 @@
 diff --git a/litellm/litellm_core_utils/prompt_templates/common_utils.py b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-index 2fca19dc8d..55440d4a85 100644
+index 00b80839dd..7220df8a1b 100644
 --- a/litellm/litellm_core_utils/prompt_templates/common_utils.py
 +++ b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-@@ -253,6 +253,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
+@@ -292,6 +292,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
      return False
  
  
@@ -205,10 +205,10 @@ index 2fca19dc8d..55440d4a85 100644
      messages: list[AllMessageValues],
  ) -> list[dict[str, str]]:
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index c00b6bc108..cd306264fd 100644
+index 32c12d149c..1342539c79 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -487,6 +487,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -474,6 +474,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          Returns:
              dict: The transformed request. Sent as the body of the API call.
          """
@@ -220,7 +220,7 @@ index c00b6bc108..cd306264fd 100644
          messages = self._transform_messages(messages=messages, model=model)
          preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -500,6 +505,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -487,6 +492,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
  
@@ -230,7 +230,7 @@ index c00b6bc108..cd306264fd 100644
          optional_params.pop("max_retries", None)
          if not optional_params.get("tools") and not optional_params.get("functions"):
              optional_params.pop("tool_choice", None)
-@@ -519,6 +527,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -506,6 +514,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          litellm_params: dict,
          headers: dict,
      ) -> dict:
@@ -242,7 +242,7 @@ index c00b6bc108..cd306264fd 100644
          transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
          preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -537,6 +550,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -524,6 +537,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
          if self.__class__._is_base_class:
@@ -252,31 +252,26 @@ index c00b6bc108..cd306264fd 100644
                  optional_params.pop("tool_choice", None)
              return {
 diff --git a/litellm/llms/openai/responses/transformation.py b/litellm/llms/openai/responses/transformation.py
-index 01313e9587..473b5ecdae 100644
+index 926de3e885..92a647813b 100644
 --- a/litellm/llms/openai/responses/transformation.py
 +++ b/litellm/llms/openai/responses/transformation.py
-@@ -204,6 +204,11 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
-         `remove_cache_control_flag_from_messages_and_tools`; mirror that here.
-         """
- 
+@@ -296,7 +296,18 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
+         sanitized_tools: Final = self._flatten_tool_schema_combinators_for_openai(
+             model=model, tools=object_schema_tools, litellm_params=litellm_params
+         )
+-        return self._drop_foreign_tool_call_item_ids(stripped_input), sanitized_tools
 +        from litellm.litellm_core_utils.prompt_templates.common_utils import (
 +            model_explicitly_disables_vision,
 +            replace_image_blocks_in_responses_input,
 +        )
 +
-         input = self._validate_input_param(input)
-         tools = response_api_optional_request_params.get("tools")
-         input, tools = self.remove_cache_control_flag_from_input_and_tools(model=model, input=input, tools=tools)
-@@ -212,6 +217,12 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
-         )
-         if sanitized_tools is not None:
-             response_api_optional_request_params["tools"] = sanitized_tools
-+
-+        # Text-only models: replace image parts so upstream does not reject
-+        # unknown variant image_url / input_image. Reference is client-as-is.
-+        if model_explicitly_disables_vision(model=model, litellm_params=litellm_params):
-+            input = replace_image_blocks_in_responses_input(input)
-+
-         replay_safe_input: Final = self._drop_foreign_tool_call_item_ids(input)
-         final_request_params: Final = dict(
-             ResponsesAPIRequestParams(model=model, input=replay_safe_input, **response_api_optional_request_params)
++        dropped_ids: Final = self._drop_foreign_tool_call_item_ids(stripped_input)
++        replay_safe_input: Final = (
++            replace_image_blocks_in_responses_input(dropped_ids)
++            if model_explicitly_disables_vision(model=model, litellm_params=litellm_params)
++            else dropped_ids
++        )
++        return replay_safe_input, sanitized_tools
+ 
+     def _tools_with_object_parameters(
+         self, model: str, tools: Sequence[ALL_RESPONSES_API_TOOL_PARAMS] | None
