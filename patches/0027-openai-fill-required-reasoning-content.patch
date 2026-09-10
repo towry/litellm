@@ -1,0 +1,104 @@
+diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
+index 9afc6331d9..e7a9e53e99 100644
+--- a/litellm/llms/openai/chat/gpt_transformation.py
++++ b/litellm/llms/openai/chat/gpt_transformation.py
+@@ -457,6 +457,80 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         ]
+         return MappingProxyType({"tools": flattened})
+ 
++    @staticmethod
++    def _model_info_requires_reasoning_content(litellm_params: Mapping[str, object] | None) -> bool:
++        """True only when deployment model_info sets requires_reasoning_content."""
++        if litellm_params is None:
++            return False
++        candidates: Final[list[object]] = []
++        info = litellm_params.get("model_info") if isinstance(litellm_params, Mapping) else None
++        if info is not None:
++            candidates.append(info)
++        metadata = litellm_params.get("metadata") if isinstance(litellm_params, Mapping) else None
++        if isinstance(metadata, Mapping):
++            nested = metadata.get("model_info")
++            if nested is not None:
++                candidates.append(nested)
++        for candidate in candidates:
++            if isinstance(candidate, Mapping) and candidate.get("requires_reasoning_content") is True:
++                return True
++            extra = getattr(candidate, "model_extra", None) or getattr(candidate, "__pydantic_extra__", None)
++            if isinstance(extra, Mapping) and extra.get("requires_reasoning_content") is True:
++                return True
++            if getattr(candidate, "requires_reasoning_content", None) is True:
++                return True
++        return False
++
++    @staticmethod
++    def _promoted_reasoning_content(msg: Mapping[str, object]) -> str | None:
++        stored = msg.get("reasoning_content")
++        if isinstance(stored, str) and stored.strip():
++            return stored
++        reasoning = msg.get("reasoning")
++        if isinstance(reasoning, str) and reasoning.strip():
++            return reasoning
++        details = msg.get("reasoning_details")
++        if isinstance(details, list):
++            texts: Final = tuple(
++                text
++                for block in details
++                if isinstance(block, Mapping)
++                for text in (block.get("text"),)
++                if isinstance(text, str) and text.strip()
++            )
++            if texts:
++                return "\n".join(texts)
++        provider_fields = msg.get("provider_specific_fields")
++        if isinstance(provider_fields, Mapping):
++            nested = provider_fields.get("reasoning_content")
++            if isinstance(nested, str) and nested.strip():
++                return nested
++        return None
++
++    def _fill_required_reasoning_content(self, messages: list[AllMessageValues]) -> list[AllMessageValues]:
++        """DeepSeek thinking+tools requires reasoning_content on assistant tool-call turns.
++
++        Promote reasoning / reasoning_details / provider_specific_fields, else inject a
++        single space (the minimum the API accepts).
++        """
++        result: Final[list[AllMessageValues]] = []
++        for msg in messages:
++            if not isinstance(msg, Mapping):
++                result.append(msg)
++                continue
++            if msg.get("role") != "assistant" or not msg.get("tool_calls"):
++                result.append(msg)
++                continue
++            existing = msg.get("reasoning_content")
++            if isinstance(existing, str) and existing.strip():
++                result.append(msg)
++                continue
++            promoted = self._promoted_reasoning_content(msg)
++            patched = dict(cast(dict, msg))
++            patched["reasoning_content"] = promoted if promoted is not None else " "
++            result.append(cast(AllMessageValues, patched))
++        return result
++
+     def transform_request(
+         self,
+         model: str,
+@@ -485,6 +559,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         if not optional_params.get("tools") and not optional_params.get("functions"):
+             optional_params.pop("tool_choice", None)
+ 
++        if self._model_info_requires_reasoning_content(litellm_params) and optional_params.get("tools"):
++            messages = self._fill_required_reasoning_content(messages)
++
+         return {
+             "model": model,
+             "messages": messages,
+@@ -517,6 +594,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+         if self.__class__._is_base_class:
+             if not optional_params.get("tools") and not optional_params.get("functions"):
+                 optional_params.pop("tool_choice", None)
++            if self._model_info_requires_reasoning_content(litellm_params) and optional_params.get("tools"):
++                transformed_messages = self._fill_required_reasoning_content(transformed_messages)
+             return {
+                 "model": model,
+                 "messages": transformed_messages,

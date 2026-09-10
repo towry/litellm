@@ -13,6 +13,8 @@
 
 - `0023-anthropic-messages-append-beta-query.patch`: Anthropic `/v1/messages` pass-through 补 `?beta=true`，对齐 Claude Code CLI
 
+- `0027-openai-fill-required-reasoning-content.patch`: OpenAI-compat 出站在 `model_info.requires_reasoning_content = true` 且请求带 tools 时，给缺字段的 assistant+tool_calls 补 `reasoning_content`（先抬 reasoning / reasoning_details / provider_specific_fields，否则塞单个空格）。DeepSeek thinking 缺此字段会 400。
+
 ## Rules
 
 - 勿纳仅供本地 agent 使用之文档、提示或工作流说明
