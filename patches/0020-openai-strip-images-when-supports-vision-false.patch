@@ -1,8 +1,8 @@
 diff --git a/litellm/litellm_core_utils/prompt_templates/common_utils.py b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-index 00b80839dd..7220df8a1b 100644
+index 24858961..16af85cb 100644
 --- a/litellm/litellm_core_utils/prompt_templates/common_utils.py
 +++ b/litellm/litellm_core_utils/prompt_templates/common_utils.py
-@@ -292,6 +292,201 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
+@@ -292,6 +292,197 @@ def _audio_or_image_in_message_content(message: AllMessageValues) -> bool:
      return False
  
  
@@ -40,7 +40,6 @@ index 00b80839dd..7220df8a1b 100644
 +        if "supports_vision" not in model_info:
 +            return None
 +        return model_info.get("supports_vision")
-+    # Pydantic ModelInfo (extra=allow) or similar
 +    extra = getattr(model_info, "model_extra", None) or getattr(
 +        model_info, "__pydantic_extra__", None
 +    )
@@ -50,8 +49,6 @@ index 00b80839dd..7220df8a1b 100644
 +        model_info, "__dict__", {}
 +    ):
 +        return getattr(model_info, "supports_vision")
-+    # getattr alone cannot distinguish missing vs explicit None; only treat as
-+    # explicit when the object claims the key (Mapping / .get with sentinel).
 +    if isinstance(model_info, Mapping):
 +        if "supports_vision" not in model_info:
 +            return None
@@ -165,7 +162,6 @@ index 00b80839dd..7220df8a1b 100644
 +            continue
 +        content = item.get("content")
 +        if not isinstance(content, list):
-+            # top-level input_image item (rare)
 +            if item.get("type") in ("input_image", "image_url"):
 +                ref = image_ref_as_given(
 +                    item.get("image_url") if item.get("image_url") is not None else item.get("url")
@@ -205,10 +201,10 @@ index 00b80839dd..7220df8a1b 100644
      messages: list[AllMessageValues],
  ) -> list[dict[str, str]]:
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 32c12d149c..1342539c79 100644
+index 8c2fff9d..f52db9d9 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -474,6 +474,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -480,6 +480,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          Returns:
              dict: The transformed request. Sent as the body of the API call.
          """
@@ -220,7 +216,7 @@ index 32c12d149c..1342539c79 100644
          messages = self._transform_messages(messages=messages, model=model)
          preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -487,6 +492,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -493,6 +498,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
  
@@ -230,7 +226,7 @@ index 32c12d149c..1342539c79 100644
          optional_params.pop("max_retries", None)
          if not optional_params.get("tools") and not optional_params.get("functions"):
              optional_params.pop("tool_choice", None)
-@@ -506,6 +514,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -512,6 +520,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          litellm_params: dict,
          headers: dict,
      ) -> dict:
@@ -242,7 +238,7 @@ index 32c12d149c..1342539c79 100644
          transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
          preserve_cache_control = self._should_preserve_cache_control_for_endpoint(
              litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
-@@ -524,6 +537,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -530,6 +543,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              if tools is not None and len(tools) > 0:
                  optional_params["tools"] = tools
          if self.__class__._is_base_class:
@@ -252,11 +248,11 @@ index 32c12d149c..1342539c79 100644
                  optional_params.pop("tool_choice", None)
              return {
 diff --git a/litellm/llms/openai/responses/transformation.py b/litellm/llms/openai/responses/transformation.py
-index 926de3e885..92a647813b 100644
+index 833ae206..cb07e5f4 100644
 --- a/litellm/llms/openai/responses/transformation.py
 +++ b/litellm/llms/openai/responses/transformation.py
-@@ -296,7 +296,18 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
-         sanitized_tools: Final = self._flatten_tool_schema_combinators_for_openai(
+@@ -303,7 +303,18 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
+         sanitized_tools: Final = self._sanitized_tool_schemas_for_openai(
              model=model, tools=object_schema_tools, litellm_params=litellm_params
          )
 -        return self._drop_foreign_tool_call_item_ids(stripped_input), sanitized_tools

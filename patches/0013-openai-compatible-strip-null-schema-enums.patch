@@ -1,5 +1,5 @@
 diff --git a/litellm/litellm_core_utils/json_validation_rule.py b/litellm/litellm_core_utils/json_validation_rule.py
-index 9fd4c03ac9..e31c49b22c 100644
+index 9fd4c03a..e31c49b2 100644
 --- a/litellm/litellm_core_utils/json_validation_rule.py
 +++ b/litellm/litellm_core_utils/json_validation_rule.py
 @@ -96,6 +96,36 @@ def normalize_tool_schema(tool: dict[str, Any]) -> dict[str, Any]:
@@ -40,7 +40,7 @@ index 9fd4c03ac9..e31c49b22c 100644
      """
      Validate if the returned json response follows the schema.
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 9afc6331d9..32c12d149c 100644
+index e6190a0e..8c2fff9d 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
 @@ -18,6 +18,7 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
@@ -49,9 +49,9 @@ index 9afc6331d9..32c12d149c 100644
  )
 +from litellm.litellm_core_utils.json_validation_rule import drop_none_schema_enum_values
  from litellm.litellm_core_utils.prompt_templates.common_utils import (
+     drop_non_python_regex_patterns,
      drop_tool_reference_parts_from_tool_messages,
-     get_tool_call_names,
-@@ -472,9 +475,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -480,9 +481,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              dict: The transformed request. Sent as the body of the API call.
          """
          messages = self._transform_messages(messages=messages, model=model)
@@ -66,7 +66,7 @@ index 9afc6331d9..32c12d149c 100644
              messages, tools = self.remove_cache_control_flag_from_messages_and_tools(
                  model=model, messages=messages, tools=optional_params.get("tools", [])
              )
-@@ -501,9 +507,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -509,9 +513,12 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          headers: dict,
      ) -> dict:
          transformed_messages = await self._transform_messages(messages=messages, model=model, is_async=True)
@@ -82,10 +82,10 @@ index 9afc6331d9..32c12d149c 100644
                  transformed_messages,
                  tools,
 diff --git a/litellm/llms/openai/openai.py b/litellm/llms/openai/openai.py
-index edc8d64d9c..de95382960 100644
+index 9c0d3c35..a326bfd2 100644
 --- a/litellm/llms/openai/openai.py
 +++ b/litellm/llms/openai/openai.py
-@@ -3,6 +3,7 @@ import time
+@@ -2,6 +2,7 @@ import time
  import types
  from collections.abc import AsyncIterator, Callable, Coroutine, Iterable, Iterator, Mapping
  from typing import TYPE_CHECKING, Any, Final, Literal, Optional, cast
@@ -93,7 +93,7 @@ index edc8d64d9c..de95382960 100644
  
  import httpx
  
-@@ -27,6 +27,7 @@ from litellm._logging import verbose_logger
+@@ -27,6 +28,7 @@ from litellm._logging import verbose_logger
  from litellm.constants import DEFAULT_MAX_RETRIES
  from litellm.files.types import FileContentStreamingResult
  from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
@@ -101,7 +101,7 @@ index edc8d64d9c..de95382960 100644
  from litellm.litellm_core_utils.logging_utils import speech_request_body, track_llm_api_timing
  from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
  from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-@@ -265,6 +270,11 @@ class OpenAIConfig(BaseConfig):
+@@ -269,6 +271,11 @@ class OpenAIConfig(BaseConfig):
          headers: dict,
      ) -> dict:
          messages = self._transform_messages(messages=messages, model=model)
