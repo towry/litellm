@@ -1,0 +1,55 @@
+diff --git a/litellm/llms/deepseek/chat/transformation.py b/litellm/llms/deepseek/chat/transformation.py
+index ea19a7c7dd..02e6b42fbc 100644
+--- a/litellm/llms/deepseek/chat/transformation.py
++++ b/litellm/llms/deepseek/chat/transformation.py
+@@ -293,6 +293,34 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+             return {**cleaned, "tools": function_tools}
+         return {k: v for k, v in cleaned.items() if k not in ("tool_choice", "parallel_tool_calls")}
+ 
++    @staticmethod
++    def _assistant_content_is_empty(content: object) -> bool:
++        if content is None or content == "":
++            return True
++        if not isinstance(content, list):
++            return False
++        if not content:
++            return True
++        return all(
++            isinstance(block, Mapping)
++            and block.get("type") in ("text", "output_text")
++            and not block.get("text")
++            for block in content
++        )
++
++    @staticmethod
++    def _is_empty_assistant_message(message: object) -> bool:
++        if not isinstance(message, Mapping):
++            return False
++        if message.get("role") != "assistant":
++            return False
++        if message.get("tool_calls") or message.get("function_call"):
++            return False
++        return DeepSeekChatConfig._assistant_content_is_empty(message.get("content"))
++
++    def _drop_empty_assistant_messages(self, messages: list[AllMessageValues]) -> list[AllMessageValues]:
++        return [message for message in messages if not self._is_empty_assistant_message(message)]
++
+     def transform_request(
+         self,
+         model: str,
+@@ -311,6 +339,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+         like deepseek-v3.2 that support thinking as opt-in but not always-on.
+         """
+         optional_params = self._drop_unsupported_tools(optional_params)
++        messages = self._drop_empty_assistant_messages(messages)
+         if self._thinking_mode_active(model=model, optional_params=optional_params):
+             messages = self._fill_reasoning_content(messages)
+         return super().transform_request(
+@@ -334,6 +363,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+         fix for multi-turn thinking-mode conversations.
+         """
+         optional_params = self._drop_unsupported_tools(optional_params)
++        messages = self._drop_empty_assistant_messages(messages)
+         if self._thinking_mode_active(model=model, optional_params=optional_params):
+             messages = self._fill_reasoning_content(messages)
+         return await super().async_transform_request(

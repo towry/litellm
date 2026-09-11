@@ -14,6 +14,7 @@
 - `0023-anthropic-messages-append-beta-query.patch`: Anthropic `/v1/messages` pass-through 补 `?beta=true`，对齐 Claude Code CLI
 
 - `0027-openai-fill-required-reasoning-content.patch`: OpenAI-compat 出站在 `model_info.requires_reasoning_content = true` 且请求带 tools 时，给缺字段的 assistant+tool_calls 补 `reasoning_content`（先抬 reasoning / reasoning_details / provider_specific_fields，否则塞单个空格）。DeepSeek thinking 缺此字段会 400。
+- `0028-deepseek-drop-empty-assistant-messages.patch`: DeepSeek chat 出站丢掉既无 content 也无 tool_calls 的 assistant。上游会 400 `Invalid assistant message: content or tool_calls must be set`。
 
 ## Rules
 
