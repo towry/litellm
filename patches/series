@@ -17,5 +17,5 @@
 0025-anthropic-client-headers-win-over-extra.patch
 0026-forward-claude-user-agent-and-stainless.patch
 0027-openai-fill-required-reasoning-content.patch
-0028-deepseek-drop-empty-assistant-messages.patch
+0028-deepseek-coerce-empty-assistant-content.patch
 0029-deepseek-fill-reasoning-when-tools.patch

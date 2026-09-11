@@ -46,4 +46,4 @@ index 02e6b42f..0ed5732f 100644
 +        thinking was explicitly disabled.
          """
          optional_params = self._drop_unsupported_tools(optional_params)
-         messages = self._drop_empty_assistant_messages(messages)
+         messages = self._coerce_empty_assistant_content(messages)
