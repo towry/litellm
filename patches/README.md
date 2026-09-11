@@ -15,6 +15,7 @@
 
 - `0027-openai-fill-required-reasoning-content.patch`: OpenAI-compat 出站在 `model_info.requires_reasoning_content = true` 且请求带 tools 时，给缺字段的 assistant+tool_calls 补 `reasoning_content`（先抬 reasoning / reasoning_details / provider_specific_fields，否则塞单个空格）。DeepSeek thinking 缺此字段会 400。
 - `0028-deepseek-drop-empty-assistant-messages.patch`: DeepSeek chat 出站丢掉既无 content 也无 tool_calls 的 assistant。上游会 400 `Invalid assistant message: content or tool_calls must be set`。
+- `0029-deepseek-fill-reasoning-when-tools.patch`: 官方 thinking 默认开。带 tools 且未显式关闭 thinking 时补 `reasoning_content`，不再用价目表 `supports_reasoning` 当门槛。`deepseek-flash` 不在价目表里，旧开关会漏补并 400。
 
 ## Rules
 

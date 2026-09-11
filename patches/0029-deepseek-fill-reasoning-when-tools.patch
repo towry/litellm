@@ -1,0 +1,49 @@
+diff --git a/litellm/llms/deepseek/chat/transformation.py b/litellm/llms/deepseek/chat/transformation.py
+index 02e6b42f..0ed5732f 100644
+--- a/litellm/llms/deepseek/chat/transformation.py
++++ b/litellm/llms/deepseek/chat/transformation.py
+@@ -12,7 +12,7 @@ from litellm.litellm_core_utils.prompt_templates.common_utils import (
+ )
+ from litellm.secret_managers.main import get_secret_str
+ from litellm.types.llms.openai import AllMessageValues
+-from litellm.utils import supports_reasoning, supports_vision
++from litellm.utils import supports_vision
+ 
+ from ...openai.chat.gpt_transformation import OpenAIGPTConfig
+ 
+@@ -212,17 +212,12 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+         return cast(AllMessageValues, forwarded)  # cast-ok: TypedDict spread narrows to dict
+ 
+     def _thinking_mode_active(self, model: str, optional_params: dict) -> bool:
+-        """
+-        Returns True only when thinking mode is actually active for this request:
+-          - model supports reasoning (capability check)
+-          - user explicitly passed thinking={"type": "enabled"} (opt-in check)
+-        """
+         thinking: Final = optional_params.get("thinking")
+-        return (
+-            supports_reasoning(model=model, custom_llm_provider="deepseek")
+-            and isinstance(thinking, dict)
+-            and thinking.get("type") == "enabled"
+-        )
++        if isinstance(thinking, dict) and thinking.get("type") == "disabled":
++            return False
++        if optional_params.get("reasoning_effort") == "none":
++            return False
++        return bool(optional_params.get("tools"))
+ 
+     @staticmethod
+     def _drop_unsupported_tools(optional_params: dict) -> dict:
+@@ -333,10 +328,8 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+         Ensures `reasoning_content` is forwarded on assistant messages for
+         multi-turn thinking-mode conversations (issue #28045).
+ 
+-        Only runs when thinking mode is actually active - guarded by both
+-        supports_reasoning() (model capability) and optional_params["thinking"]
+-        (user explicitly enabled it), preventing spurious injection on models
+-        like deepseek-v3.2 that support thinking as opt-in but not always-on.
++        Thinking is on by default. Fill when the request carries tools unless
++        thinking was explicitly disabled.
+         """
+         optional_params = self._drop_unsupported_tools(optional_params)
+         messages = self._drop_empty_assistant_messages(messages)
