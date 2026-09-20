@@ -1,8 +1,8 @@
 diff --git a/litellm/proxy/litellm_pre_call_utils.py b/litellm/proxy/litellm_pre_call_utils.py
-index 20f8308528..9f4bab4734 100644
+index 9a97375589..abf32c8e3f 100644
 --- a/litellm/proxy/litellm_pre_call_utils.py
 +++ b/litellm/proxy/litellm_pre_call_utils.py
-@@ -1061,11 +1061,11 @@ class LiteLLMProxyRequestSetup:
+@@ -1322,11 +1322,11 @@ class LiteLLMProxyRequestSetup:
          """
          forwarded_headers: Final = {}
          for header, value in headers.items():

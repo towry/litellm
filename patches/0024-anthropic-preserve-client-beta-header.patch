@@ -1,31 +1,32 @@
 diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-index 3d62b8b478..ebfb385cbd 100644
+index 46b64fcc85..c333bd632e 100644
 --- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
 +++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-@@ -332,10 +332,11 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+@@ -269,11 +269,12 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
          if "content-type" not in headers:
              headers["content-type"] = "application/json"
  
 -        headers = self._update_headers_with_anthropic_beta(
 -            headers=headers,
 -            optional_params=optional_params,
+-            messages=messages,
 -        )
 +        if not any(name.lower() == "anthropic-beta" for name in headers):
 +            headers = self._update_headers_with_anthropic_beta(
 +                headers=headers,
 +                optional_params=optional_params,
++                messages=messages,
 +            )
  
          return headers, api_base
  
-@@ -784,6 +785,9 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
-                 beta_values.add(tool_search_header)
- 
-         if beta_values:
--            headers["anthropic-beta"] = ",".join(sorted(beta_values))
-+            existing_order = [b.strip() for b in (existing_beta or "").split(",") if b.strip()]
-+            seen = set(existing_order)
-+            appended = [b for b in beta_values if b not in seen]
-+            headers["anthropic-beta"] = ",".join(existing_order + appended)
- 
-         return headers
+@@ -717,5 +718,8 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
+         if not beta_values:
+             return headers
+         merged: Final = {key: value for key, value in headers.items() if key.lower() != "anthropic-beta"}
+-        merged["anthropic-beta"] = ",".join(sorted(beta_values))
++        existing_order = list(existing_beta)
++        seen = set(existing_order)
++        appended = [b for b in beta_values if b not in seen]
++        merged["anthropic-beta"] = ",".join(existing_order + appended)
+         return merged

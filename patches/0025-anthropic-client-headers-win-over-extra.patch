@@ -1,8 +1,8 @@
 diff --git a/litellm/llms/custom_httpx/llm_http_handler.py b/litellm/llms/custom_httpx/llm_http_handler.py
-index 834f7d564a..54d65366c5 100644
+index 49a332e62b..94d724e4a8 100644
 --- a/litellm/llms/custom_httpx/llm_http_handler.py
 +++ b/litellm/llms/custom_httpx/llm_http_handler.py
-@@ -2096,12 +2096,12 @@ class BaseLLMHTTPHandler:
+@@ -2257,12 +2257,12 @@ class BaseLLMHTTPHandler:
          forwarded_headers: Final = kwargs.get("headers", None)
          # Also check for extra_headers in kwargs (from config or direct calls)
          extra_headers_from_kwargs: Final = kwargs.get("extra_headers", None)

@@ -1,8 +1,8 @@
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index f52db9d9..1c246c70 100644
+index 68a0209eb8..1d7a5717b1 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -466,6 +466,80 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -468,6 +468,80 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          ]
          return MappingProxyType({"tools": sanitized})
  
@@ -80,10 +80,10 @@ index f52db9d9..1c246c70 100644
 +            result.append(cast(AllMessageValues, patched))
 +        return result
 +
-     def transform_request(
-         self,
-         model: str,
-@@ -505,6 +579,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+     def _prompt_cache_ordered_messages(
+         self, messages: list[AllMessageValues], litellm_params: Mapping[str, object]
+     ) -> list[AllMessageValues]:
+@@ -518,6 +592,9 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
          if not optional_params.get("tools") and not optional_params.get("functions"):
              optional_params.pop("tool_choice", None)
  
@@ -93,7 +93,7 @@ index f52db9d9..1c246c70 100644
          return {
              "model": model,
              "messages": messages,
-@@ -547,6 +624,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -562,6 +639,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
                  transformed_messages = replace_image_url_blocks_in_messages(transformed_messages)
              if not optional_params.get("tools") and not optional_params.get("functions"):
                  optional_params.pop("tool_choice", None)
