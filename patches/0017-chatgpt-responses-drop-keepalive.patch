@@ -1,8 +1,8 @@
 diff --git a/litellm/llms/base_llm/responses/transformation.py b/litellm/llms/base_llm/responses/transformation.py
-index dd4cebac52..ee6fb1092a 100644
+index b5e1870141..2f349fcb06 100644
 --- a/litellm/llms/base_llm/responses/transformation.py
 +++ b/litellm/llms/base_llm/responses/transformation.py
-@@ -66,6 +66,9 @@ class BaseResponsesAPIConfig(ABC):
+@@ -69,6 +69,9 @@ class BaseResponsesAPIConfig(ABC):
      def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator | None:
          return None
  
@@ -13,10 +13,10 @@ index dd4cebac52..ee6fb1092a 100644
          self,
          headers: dict,
 diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
-index c73e6c3a74..b8ce73b2f9 100644
+index f6a8aced0f..20640a1875 100644
 --- a/litellm/llms/chatgpt/responses/transformation.py
 +++ b/litellm/llms/chatgpt/responses/transformation.py
-@@ -41,6 +41,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+@@ -47,6 +47,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
      def create_streaming_output_recovery(self) -> ResponsesSSEOutputAccumulator:
          return ResponsesSSEOutputAccumulator()
  
@@ -27,10 +27,10 @@ index c73e6c3a74..b8ce73b2f9 100644
          self,
          headers: dict,
 diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streaming_iterator.py
-index 275aaca4d6..31bce13506 100644
+index 1d71dc1d4e..0f5b51775e 100644
 --- a/litellm/responses/streaming_iterator.py
 +++ b/litellm/responses/streaming_iterator.py
-@@ -274,6 +274,8 @@ class BaseResponsesAPIStreamingIterator:
+@@ -362,6 +362,8 @@ class BaseResponsesAPIStreamingIterator:
              if _is_json_object(parsed_chunk):
                  if self.responses_api_provider_config is None:
                      raise ValueError("responses_api_provider_config is required to process live streaming chunks")

@@ -1,5 +1,5 @@
 diff --git a/litellm/llms/deepseek/chat/transformation.py b/litellm/llms/deepseek/chat/transformation.py
-index 02e6b42f..0ed5732f 100644
+index 7c7d335911..19b2fd2ae8 100644
 --- a/litellm/llms/deepseek/chat/transformation.py
 +++ b/litellm/llms/deepseek/chat/transformation.py
 @@ -12,7 +12,7 @@ from litellm.litellm_core_utils.prompt_templates.common_utils import (
@@ -34,7 +34,7 @@ index 02e6b42f..0ed5732f 100644
  
      @staticmethod
      def _drop_unsupported_tools(optional_params: dict) -> dict:
-@@ -333,10 +328,8 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
+@@ -335,10 +330,8 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
          Ensures `reasoning_content` is forwarded on assistant messages for
          multi-turn thinking-mode conversations (issue #28045).
  

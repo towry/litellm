@@ -1,13 +1,14 @@
 diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
-index 8e4bbf1d3c..3ddec34cf1 100644
+index 9774b76239..b1d23d9fbd 100644
 --- a/litellm/llms/chatgpt/responses/transformation.py
 +++ b/litellm/llms/chatgpt/responses/transformation.py
-@@ -1,3 +1,4 @@
+@@ -1,4 +1,4 @@
+-from collections.abc import Mapping
 +from collections.abc import Mapping, Sequence
  from typing import TYPE_CHECKING, Any, Final
  
- from litellm.exceptions import AuthenticationError
-@@ -58,6 +59,28 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+ import httpx
+@@ -65,6 +65,28 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
          default_headers: Final = get_chatgpt_default_headers(access_token, account_id, session_id)
          return {**default_headers, **headers}
  
@@ -36,7 +37,7 @@ index 8e4bbf1d3c..3ddec34cf1 100644
      def transform_responses_api_request(
          self,
          model: str,
-@@ -73,11 +96,33 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+@@ -80,11 +102,33 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
              litellm_params,
              headers,
          )

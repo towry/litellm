@@ -1,5 +1,5 @@
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 68a0209eb8..1d7a5717b1 100644
+index 862839f77b..cdfc78ba41 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
 @@ -468,6 +468,80 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
