@@ -1,7 +1,7 @@
-diff --git a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
+diff --git a/litellm/llms/anthropic/pass_through/messages/transformation.py b/litellm/llms/anthropic/pass_through/messages/transformation.py
 index 476c333dc6..b32f432681 100644
---- a/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
-+++ b/litellm/llms/anthropic/experimental_pass_through/messages/transformation.py
+--- a/litellm/llms/anthropic/pass_through/messages/transformation.py
++++ b/litellm/llms/anthropic/pass_through/messages/transformation.py
 @@ -476,6 +476,34 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
          if thinking_enabled or effort_enabled:
              optional_params.pop("temperature", None)
