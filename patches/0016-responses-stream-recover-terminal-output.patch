@@ -1,8 +1,8 @@
 diff --git a/litellm/llms/base_llm/responses/transformation.py b/litellm/llms/base_llm/responses/transformation.py
-index 14f00aaaa2..b5e1870141 100644
+index a03cd0d..75351f6 100644
 --- a/litellm/llms/base_llm/responses/transformation.py
 +++ b/litellm/llms/base_llm/responses/transformation.py
-@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Final, cast
+@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Final, cast
  
  import httpx
  
@@ -10,7 +10,7 @@ index 14f00aaaa2..b5e1870141 100644
  from litellm.types.llms.openai import (
      ResponseInputParam,
      ResponsesAPIOptionalRequestParams,
-@@ -65,6 +66,9 @@ class BaseResponsesAPIConfig(ABC):
+@@ -66,6 +67,9 @@ class BaseResponsesAPIConfig(ABC):
      def supports_encrypted_agent_messages(self) -> bool:
          return False
  
@@ -21,10 +21,10 @@ index 14f00aaaa2..b5e1870141 100644
          self,
          headers: dict,
 diff --git a/litellm/llms/chatgpt/responses/transformation.py b/litellm/llms/chatgpt/responses/transformation.py
-index b1d23d9fbd..f6a8aced0f 100644
+index e9de1d3..3606763 100644
 --- a/litellm/llms/chatgpt/responses/transformation.py
 +++ b/litellm/llms/chatgpt/responses/transformation.py
-@@ -11,9 +11,8 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
+@@ -12,9 +12,8 @@ from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response impo
  from litellm.llms.openai.common_utils import OpenAIError
  from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
  from litellm.responses.sse_output_recovery import (
@@ -35,7 +35,7 @@ index b1d23d9fbd..f6a8aced0f 100644
  )
  from litellm.types.llms.openai import (
      ResponseInputParam,
-@@ -45,6 +44,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+@@ -48,6 +47,9 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
      def custom_llm_provider(self) -> LlmProviders:
          return LlmProviders.CHATGPT
  
@@ -45,7 +45,7 @@ index b1d23d9fbd..f6a8aced0f 100644
      def validate_environment(
          self,
          headers: dict,
-@@ -198,39 +200,17 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+@@ -205,39 +207,17 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
      def _extract_completed_response_from_sse(self, body_text: str) -> tuple[ResponsesAPIResponse | None, str | None]:
          completed_response = None
          error_message = None
@@ -87,7 +87,7 @@ index b1d23d9fbd..f6a8aced0f 100644
                  )
                  break
  
-@@ -245,14 +225,12 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
+@@ -252,14 +232,12 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
          return completed_response, error_message
  
      def _build_completed_response_from_chunk(
@@ -101,10 +101,10 @@ index b1d23d9fbd..f6a8aced0f 100644
 -        if not response_payload.get("output") and streamed_output_items:
 -            response_payload["output"] = [item for _, item in sorted(streamed_output_items.items())]
          if "created_at" in response_payload:
-             response_payload["created_at"] = _safe_convert_created_field(response_payload["created_at"])
+             response_payload["created_at"] = safe_convert_created_field(response_payload["created_at"])
          try:
 diff --git a/litellm/responses/sse_output_recovery.py b/litellm/responses/sse_output_recovery.py
-index adc6a30319..ca1e994d35 100644
+index cdabcb5..3cf2c3e 100644
 --- a/litellm/responses/sse_output_recovery.py
 +++ b/litellm/responses/sse_output_recovery.py
 @@ -12,6 +12,7 @@ from collections.abc import Mapping
@@ -159,10 +159,10 @@ index adc6a30319..ca1e994d35 100644
 +            },
 +        }
 diff --git a/litellm/responses/streaming_iterator.py b/litellm/responses/streaming_iterator.py
-index 59655800af..1d71dc1d4e 100644
+index 32a4f42..9bda6bc 100644
 --- a/litellm/responses/streaming_iterator.py
 +++ b/litellm/responses/streaming_iterator.py
-@@ -294,6 +294,11 @@ class BaseResponsesAPIStreamingIterator:
+@@ -328,6 +328,11 @@ class BaseResponsesAPIStreamingIterator:
          self._completed_response_cache_hit: bool | None = None
          self._persist_completed_response_before_logging = True
          self._stream_created_time: float = time.time()
@@ -174,7 +174,7 @@ index 59655800af..1d71dc1d4e 100644
  
          # track request context for hooks
          self.litellm_metadata = litellm_metadata
-@@ -357,16 +362,21 @@ class BaseResponsesAPIStreamingIterator:
+@@ -389,16 +394,21 @@ class BaseResponsesAPIStreamingIterator:
              if _is_json_object(parsed_chunk):
                  if self.responses_api_provider_config is None:
                      raise ValueError("responses_api_provider_config is required to process live streaming chunks")
@@ -199,10 +199,10 @@ index 59655800af..1d71dc1d4e 100644
                          openai_responses_api_chunk, "response", None
                      )
 diff --git a/litellm/router.py b/litellm/router.py
-index 9a5c770e78..ad52e89f87 100644
+index dfdcaf2..1faa32c 100644
 --- a/litellm/router.py
 +++ b/litellm/router.py
-@@ -3242,6 +3242,7 @@ class Router:
+@@ -3476,6 +3476,7 @@ class Router:
                  self._completed_response_cache_hit = None
                  self._persist_completed_response_before_logging = True
                  self._stream_created_time = time.time()

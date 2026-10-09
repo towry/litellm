@@ -1,8 +1,8 @@
 diff --git a/litellm/completion_extras/litellm_responses_transformation/transformation.py b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-index 4c6112952c..40fd2b4003 100644
+index 41f6a21..56462b8 100644
 --- a/litellm/completion_extras/litellm_responses_transformation/transformation.py
 +++ b/litellm/completion_extras/litellm_responses_transformation/transformation.py
-@@ -267,24 +267,34 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+@@ -552,25 +552,35 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                          }
                      )
              elif role == "tool":
@@ -26,6 +26,7 @@ index 4c6112952c..40fd2b4003 100644
 +                    converted_output = self._convert_content_to_responses_format(
                          content,
                          "user",  # Use "user" role to get input_* types
+                         drop_params=drop_params,
                      )
 +                    has_non_text_blocks = any(
 +                        isinstance(part, dict)

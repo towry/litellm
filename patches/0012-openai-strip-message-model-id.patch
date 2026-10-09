@@ -1,8 +1,8 @@
 diff --git a/litellm/llms/openai/chat/gpt_transformation.py b/litellm/llms/openai/chat/gpt_transformation.py
-index 9c182e0829..0608b20ae5 100644
+index 936ec67..881dab1 100644
 --- a/litellm/llms/openai/chat/gpt_transformation.py
 +++ b/litellm/llms/openai/chat/gpt_transformation.py
-@@ -340,6 +340,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -362,6 +362,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
  
          async def _async_transform():
              for message in hoisted_messages:
@@ -10,7 +10,7 @@ index 9c182e0829..0608b20ae5 100644
                  message_content = message.get("content")
                  message_role = message.get("role")
  
-@@ -355,6 +356,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
+@@ -377,6 +378,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
              return _async_transform()
          else:
              for message in hoisted_messages:
@@ -19,10 +19,10 @@ index 9c182e0829..0608b20ae5 100644
                  message_role = message.get("role")
                  if message_role == "user" and message_content and isinstance(message_content, list):
 diff --git a/litellm/llms/openai/openai.py b/litellm/llms/openai/openai.py
-index 998319f3e8..bfa03d1fb2 100644
+index a782bf3..ecb8011 100644
 --- a/litellm/llms/openai/openai.py
 +++ b/litellm/llms/openai/openai.py
-@@ -193,7 +193,11 @@ class OpenAIConfig(BaseConfig):
+@@ -211,7 +211,11 @@ class OpenAIConfig(BaseConfig):
                  optional_params[param] = value
          return optional_params
  
@@ -34,4 +34,4 @@ index 998319f3e8..bfa03d1fb2 100644
 +            cast(dict, message).pop("model_id", None)
          return messages
  
-     def map_openai_params(
+     def transform_messages(
